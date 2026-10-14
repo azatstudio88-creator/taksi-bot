@@ -19,7 +19,7 @@ Thread(target=run).start()
 
 # Укажите ваш токен бота и ID группы
 BOT_TOKEN = "8820304382:AAH8gAI8BEOWS2D0j80g585XrZJYsBvJpRQ"
-GROUP_ID = -5465166613                                     
+GROUP_ID = -1005465166613                                     
 bot = telebot.TeleBot(BOT_TOKEN)
 
 user_data = {}
