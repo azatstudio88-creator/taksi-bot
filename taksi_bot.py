@@ -1,5 +1,21 @@
 import telebot
 from telebot import types
+import os
+from threading import Thread
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot faol ishlab turibdi!"
+
+def run():
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+
+Thread(target=run).start()
+
 
 # Укажите ваш токен бота и ID группы
 BOT_TOKEN = "456124133:AAFaCZb7PYBvQ2YTXmySPik7AufM_xjCkzI" 
