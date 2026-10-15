@@ -1,252 +1,94 @@
-import telebot
-from telebot import types
 import sqlite3
-import os
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from telebot import types
 
-# --- Render хизматида 24/7 ишлаши учун мини веб-сервер ---
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b"Driver bot is alive!")
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
-
-threading.Thread(target=run_web_server, daemon=True).start()
-# ---------------------------------------------------------
-
-DRIVER_BOT_TOKEN = "8840191609:AAGPVc20CYJF4Nw7gHDzc0lGunrsD9WMeW0"
-bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
-
-ADMIN_CARD = "8600 **** **** **** (Азат)"
-WELCOME_BONUS = 30000
-
-# Сиз берган гуруҳларнинг тўлиқ линклари:
-ROUTE_GROUPS = {
-    "Қоңырат — Нөкис": "https://t.me/+jEYRM45p2M82OWQy",
-    "Қоңырат — Мойнақ": "https://t.me/+-pDjIZzOC2NkMGMy",
-    "Қоңырат — Ақшолақ": "https://t.me/+xKjc0c9HYntkNWMy",
-    "Нөкис — Қанлыкөл": "https://t.me/+MXN83qQK3iI5YTcy",
-    "Нөкис — Шоманай": "https://t.me/+YT-tKRsz1784MDk6",
-    "Қоңырат — Қанлыкөл": "https://t.me/+G5dEw-gVzD8wYzcy",
-    "Қоңырат — Шоманай": "https://t.me/+3LsQ5w8Y9WQ2OWZi",
-    "Қоңырат — Сода завод": "https://t.me/+BHwD6b2cdsllZTNi"
+# Ҳар бир йўналишнинг комиссия нархлари
+COMMISSION_RATES = {
+    "Қоңырат — Нөкис": 4000,
+    "Қоңырат — Мойнақ": 3000,
+    "Қоңырат — Ақшолақ": 3000,
+    "Нөкис — Қанлыкөл": 3000,
+    "Нөкис — Шоманай": 3000,
+    "Қоңырат — Қанлыкөл": 2000,
+    "Қоңырат — Шоманай": 2000,
+    "Қоңырат — Сода завод": 2000
 }
 
-def init_db():
+# 1. Буюртма гуруҳга юборилганда чиқадиган тугма:
+def get_order_inline_keyboard(order_id):
+    markup = types.InlineKeyboardMarkup()
+    btn_take = types.InlineKeyboardButton("🚖 Буюртмани олиш", callback_data=f"take_{order_id}")
+    markup.add(btn_take)
+    return markup
+
+
+# 2. Ҳайдовчи тугмани босганда ишлайдиган қисм:
+@bot.callback_query_handler(func=lambda call: call.data.startswith("take_"))
+def process_take_order(call):
+    driver_id = call.from_user.id
+    order_id = call.data.split("_")[1]
+
+    # Буюртма мавжудлигини текшириш
+    if order_id not in orders_data:
+        bot.answer_callback_query(call.id, "⚠️ Бу буюртма олдин олинган ёки муддати ўтган!", show_alert=True)
+        return
+
+    order = orders_data[order_id]
+    route = order.get('route', '')
+    fee = COMMISSION_RATES.get(route, 2000)
+
+    # Ҳайдовчи базада бор-йўқлигини текшириш
     conn = sqlite3.connect("drivers.db")
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS drivers (
-            user_id INTEGER PRIMARY KEY,
-            full_name TEXT,
-            phone TEXT,
-            car_info TEXT,
-            route TEXT,
-            balance INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'active'
+    cursor.execute("SELECT full_name, phone, car_info, balance FROM drivers WHERE user_id = ?", (driver_id,))
+    driver = cursor.fetchone()
+
+    if not driver:
+        bot.answer_callback_query(
+            call.id, 
+            "⚠️ Сиз ҳайдовчилар ботидан рўйхатдан ўтмагансиз! Аввал ҳайдовчилар ботидан рўйхатдан ўтинг.", 
+            show_alert=True
         )
-    """)
+        conn.close()
+        return
+
+    full_name, phone, car_info, balance = driver
+
+    # Балансда етарли маблағ борлигини текшириш
+    if balance < fee:
+        bot.answer_callback_query(
+            call.id, 
+            f"❌ Балансингизда маблағ етмайди!\nБу йўналиш учун камида {fee:,} сўм керак.\nСизнинг балансингиз: {balance:,} сўм.", 
+            show_alert=True
+        )
+        conn.close()
+        return
+
+    # Балансдан пулни ечиш
+    new_balance = balance - fee
+    cursor.execute("UPDATE drivers SET balance = ? WHERE user_id = ?", (new_balance, driver_id))
     conn.commit()
     conn.close()
 
-init_db()
-
-def get_driver(user_id):
-    conn = sqlite3.connect("drivers.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id, full_name, phone, car_info, route, balance FROM drivers WHERE user_id = ?", (user_id,))
-    res = cursor.fetchone()
-    conn.close()
-    return res
-
-def add_driver(user_id, full_name, phone, car_info, route):
-    conn = sqlite3.connect("drivers.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT OR REPLACE INTO drivers (user_id, full_name, phone, car_info, route, balance)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (user_id, full_name, phone, car_info, route, WELCOME_BONUS))
-    conn.commit()
-    conn.close()
-
-def get_main_menu():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("💰 Балансым", "📥 Балансты толтырыў")
-    markup.row("👤 Профилим", "ℹ️ Қолланба")
-    return markup
-
-def get_routes_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.row("Қоңырат — Нөкис", "Қоңырат — Мойнақ")
-    markup.row("Қоңырат — Ақшолақ", "Нөкис — Қанлыкөл")
-    markup.row("Нөкис — Шоманай", "Қоңырат — Қанлыкөл")
-    markup.row("Қоңырат — Шоманай", "Қоңырат — Сода завод")
-    return markup
-
-driver_temp = {}
-
-@bot.message_handler(commands=['start'])
-def start_cmd(message):
-    user_id = message.chat.id
-    driver = get_driver(user_id)
-
-    if driver:
-        bot.send_message(
-            user_id,
-            f"Ассалаўма алейкум, <b>{driver[1]}</b>! 🚕\nҲайдавшылар кабинетине хош келипсиз.",
-            parse_mode="HTML",
-            reply_markup=get_main_menu()
-        )
-    else:
-        bot.send_message(
-            user_id,
-            "👋 <b>Region 95 Taxi ҳайдавшылар ботына хош келипсиз!</b>\n\n"
-            "Жумысты баслаў ушын дизимнен өтиўиңиз керек.\n"
-            f"🎁 <b>Сизге басланыўына {WELCOME_BONUS:,} сўм старт бонуси бериледи!</b>\n\n"
-            "Аты-фамилияңызды жазып жибериң:",
-            parse_mode="HTML",
-            reply_markup=types.ReplyKeyboardRemove()
-        )
-        bot.register_next_step_handler(message, step_name)
-
-def step_name(message):
-    user_id = message.chat.id
-    driver_temp[user_id] = {'name': message.text}
-
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    btn_phone = types.KeyboardButton("📱 Телефон номерди жибериў", request_contact=True)
-    markup.row(btn_phone)
-
-    bot.send_message(
-        user_id,
-        "📞 Телефон номериңизди батырма арқалы жибериң яки қолдан жазың:",
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, step_phone)
-
-def step_phone(message):
-    user_id = message.chat.id
-    phone = message.contact.phone_number if message.contact else message.text
-    driver_temp[user_id]['phone'] = phone
-
-    bot.send_message(
-        user_id,
-        "🚘 Автомобилиңиздиң маркасы, түси ҳәм номерин жазың:\n(Мысалы: <i>Ақ Cobalt 95 A 123 AA</i>)",
-        parse_mode="HTML",
-        reply_markup=types.ReplyKeyboardRemove()
-    )
-    bot.register_next_step_handler(message, step_car)
-
-def step_car(message):
-    user_id = message.chat.id
-    driver_temp[user_id]['car'] = message.text
-
-    bot.send_message(
-        user_id,
-        "🛣 <b>Тийкарғы қатнайтуғын бағдарыңызды сайлаң:</b>",
-        parse_mode="HTML",
-        reply_markup=get_routes_keyboard()
-    )
-    bot.register_next_step_handler(message, step_route)
-
-def step_route(message):
-    user_id = message.chat.id
-    route = message.text
-
-    name = driver_temp[user_id]['name']
-    phone = driver_temp[user_id]['phone']
-    car = driver_temp[user_id]['car']
-
-    add_driver(user_id, name, phone, car, route)
-
-    group_link = ROUTE_GROUPS.get(route, "https://t.me/")
-
-    inline_markup = types.InlineKeyboardMarkup()
-    btn_group = types.InlineKeyboardButton("🚕 Буйыртпалар топарына қосылыў", url=group_link)
-    inline_markup.add(btn_group)
-
-    bot.send_message(
-        user_id,
-        "🎉 <b>Сиз табыслы дизимнен өттиңиз!</b>\n\n"
-        f"🛣 <b>Бағдарыңыз:</b> {route}\n"
-        f"🎁 Балансыңызға <b>{WELCOME_BONUS:,} сўм</b> старт бонуси қосылды!\n\n"
-        f"👇 Төмендеги батырма арқалы топарға қосылың:",
-        parse_mode="HTML",
-        reply_markup=inline_markup
-    )
-
-    bot.send_message(
-        user_id,
-        "Жумысты баслаўыңыз мүмкин. Менюден пайдаланың:",
-        reply_markup=get_main_menu()
-    )
-
-@bot.message_handler(func=lambda m: m.text == "💰 Балансым")
-def show_balance(message):
-    user_id = message.chat.id
-    driver = get_driver(user_id)
-    if not driver:
-        start_cmd(message)
-        return
-    bot.send_message(user_id, f"💳 <b>Сиздиң балансыңыз:</b> {driver[5]:,} сўм", parse_mode="HTML")
-
-@bot.message_handler(func=lambda m: m.text == "📥 Балансты толтырыў")
-def top_up_balance(message):
-    user_id = message.chat.id
-    bot.send_message(
-        user_id,
-        f"💳 <b>Балансты толтырыў ушын:</b>\n\n"
-        f"1. Төмендеги картаға төлем қылың:\n"
-        f"<code>{ADMIN_CARD}</code>\n\n"
-        f"2. Төлем чегин усы жерге жибериң.\n\n"
-        f"Диспетчер тексерип, балансыңызды көтерип береди!",
+    # Гуруҳдаги хабарни янгилаш (бошқалар ололмаслиги учун)
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=f"{call.message.text}\n\n✅ <b>Буюртма олинди!</b>\nҲайдовчи: {full_name} ({car_info})",
         parse_mode="HTML"
     )
 
-@bot.message_handler(func=lambda m: m.text == "👤 Профилим")
-def show_profile(message):
-    user_id = message.chat.id
-    driver = get_driver(user_id)
-    if not driver:
-        start_cmd(message)
-        return
-
-    route = driver[4]
-    group_link = ROUTE_GROUPS.get(route, "https://t.me/")
-
-    inline_markup = types.InlineKeyboardMarkup()
-    btn_group = types.InlineKeyboardButton("🚕 Мениң топарым", url=group_link)
-    inline_markup.add(btn_group)
-
-    bot.send_message(
-        user_id,
-        f"👤 <b>Ҳайдавшы профили:</b>\n\n"
-        f"👤 <b>Аты:</b> {driver[1]}\n"
-        f"📞 <b>Телефон:</b> {driver[2]}\n"
-        f"🚘 <b>Машина:</b> {driver[3]}\n"
-        f"🛣 <b>Бағдары:</b> {route}\n"
-        f"💰 <b>Баланс:</b> {driver[5]:,} сўм",
-        parse_mode="HTML",
-        reply_markup=inline_markup
+    # Ҳайдовчининг личкасига мижоз маълумотларини юбориш
+    client_text = (
+        f"🚕 <b>Буюртма муваффақиятли олинди!</b>\n\n"
+        f"🛣 <b>Йўналиш:</b> {route}\n"
+        f"👤 <b>Мижоз:</b> {order.get('client_name')}\n"
+        f"📞 <b>Телефон:</b> {order.get('client_phone')}\n"
+        f"📍 <b>Манзил:</b> {order.get('location')}\n\n"
+        f"💵 Балансдан {fee:,} сўм ечилди.\n"
+        f"💰 Қолган баланс: {new_balance:,} сўм"
     )
+    bot.send_message(driver_id, client_text, parse_mode="HTML")
+    bot.answer_callback_query(call.id, f"Буюртма қабул қилинди! Балансдан {fee:,} сўм ечилди.")
 
-@bot.message_handler(func=lambda m: m.text == "ℹ️ Қолланба")
-def show_rules(message):
-    bot.send_message(
-        message.chat.id,
-        "ℹ️ <b>Қағыйдалар:</b>\n\n"
-        "1. Буйыртпа топарға түскенде «Буйыртпаны алыў» батырмасын басың.\n"
-        "2. Клиент пенен тез арада байланысып, барыў ўақтын айтың.\n"
-        "3. Балансыңызда буйыртпа алыў ушын жетерли қаржы болыўы шәрт.",
-        parse_mode="HTML"
-    )
-
-if __name__ == '__main__':
-    bot.infinity_polling()
+    # Буюртмани фаол рўйхатдан ўчириш
+    del orders_data[order_id]
