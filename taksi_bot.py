@@ -18,7 +18,7 @@ Thread(target=run).start()
 
 
 # Укажите ваш токен бота и ID группы
-BOT_TOKEN = "8820304382:AAH8gAI8BEOWS2D0j80g585XrZJYsBvJpRQ"
+BOT_TOKEN = "8820304382:AAE-iWzMjnjRZJO39KfAjS2lRi6XaURaisQ"
 
 # Гуруҳлар ID рақамлари
 GROUP_NUKUS = -1004325420878
