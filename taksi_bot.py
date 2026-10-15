@@ -21,7 +21,7 @@ def run():
 Thread(target=run, daemon=True).start()
 
 # ----------------- БОТ СОЗЛАМАЛАРИ -----------------
-BOT_TOKEN = "8820304382:AAHL7I8ow2LpNsMmURXoW7ZN6SmpazPYplM"
+BOT_TOKEN = "8820304382:AAEeBajnw21nEbxrp9M5PRR4wq6g-qeOa7k"
 
 GROUP_NUKUS = -1004325420878
 GROUP_SHOMANAY = -1004319753073
