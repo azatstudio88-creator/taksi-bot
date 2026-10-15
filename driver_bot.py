@@ -5,7 +5,7 @@ import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# --- Render хизматида узлуксиз ишлаши учун веб-сервер ---
+# --- Render'да ботни фаол (Live) сақлаб туриш учун веб-сервер ---
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -19,7 +19,7 @@ def run_web_server():
     server.serve_forever()
 
 threading.Thread(target=run_web_server, daemon=True).start()
-# --------------------------------------------------------
+# -------------------------------------------------------------
 
 DRIVER_BOT_TOKEN = "8840191609:AAGPVc20CYJF4Nw7gHDzc0lGunrsD9WMeW0"
 bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
@@ -169,4 +169,34 @@ def step_route(message):
     group_link = ROUTE_GROUPS.get(route, "https://t.me/")
 
     inline_markup = types.InlineKeyboardMarkup()
-    btn_group = types.InlineKeyboardButton("🚕 Буйыртпалар топарына қо
+    btn_group = types.InlineKeyboardButton("🚕 Буйыртпалар топарына қосылыў", url=group_link)
+    inline_markup.add(btn_group)
+
+    bot.send_message(
+        user_id,
+        "🎉 <b>Сиз табыслы дизимнен өттиңиз!</b>\n\n"
+        f"🛣 <b>Бағдарыңыз:</b> {route}\n"
+        f"🎁 Балансыңызға <b>{WELCOME_BONUS:,} сўм</b> старт бонуси қосылды!\n\n"
+        f"👇 Төмендеги батырма арқалы топарға қосылың:",
+        parse_mode="HTML",
+        reply_markup=inline_markup
+    )
+
+    bot.send_message(
+        user_id,
+        "Жумысты баслаўыңыз мүмкин. Менюден пайдаланың:",
+        reply_markup=get_main_menu()
+    )
+
+@bot.message_handler(func=lambda m: m.text == "💰 Балансым")
+def show_balance(message):
+    user_id = message.chat.id
+    driver = get_driver(user_id)
+    if not driver:
+        start_cmd(message)
+        return
+    bot.send_message(user_id, f"💳 <b>Сиздиң балансыңыз:</b> {driver[5]:,} сўм", parse_mode="HTML")
+
+@bot.message_handler(func=lambda m: m.text == "📥 Балансты толтырыў")
+def top_up_balance(message):
+    user_id
