@@ -52,11 +52,12 @@ def get_people_keyboard():
     markup.row("🔄 Басынан баслаў")
     return markup
 
-@bot.message_handler(func=lambda message: message.text in ["🔄 Басынан баслаў", "Басынан баслаў", "🔄 Бошқатдан бошлаш"])
-@bot.message_handler(commands=['start'])
+@bot.message_handler(func=lambda m: m.text in ["🔄 Басынан баслаў", "Басынан баслаў", "🔄 Бошқатдан бошлаш", "/start"])
 def send_welcome(message):
     user_id = message.chat.id
+    bot.clear_step_handler_by_chat_id(user_id)
     user_data[user_id] = {}
+
 
     welcome_text = (
         "Region 95 Taxi (Қонырат — Нукус) ботына хош келипсиз! 🚕\n"
