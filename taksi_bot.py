@@ -18,213 +18,199 @@ Thread(target=run).start()
 
 
 # Укажите ваш токен бота и ID группы
-BOT_TOKEN = "8820304382:AAH8gAI8BEOWS2D0j80g585XrZJYsBvJpRQ"
-GROUP_ID = -1004325420878                                     
-bot = telebot.TeleBot(BOT_TOKEN)
+# Укажите ваш токен бота и ID группы
+BOT_TOKEN = "8820304382:AAH8gAI8BEOWS2DOj"
+GROUP_NUKUS = -1004325420878
+GROUP_MOYNAQ = -5450445768
+GROUP_SODAZAVOD = -5533102153
+GROUP_AKSHOLAQ = -5302796049
+GROUP_QANLIKOL = -5424177269
+GROUP_SHOMANAY = -5569534477
 
+bot = telebot.TeleBot(BOT_TOKEN)
 user_data = {}
 
 def get_restart_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("🔄 Бошқатдан бошлаш")
+    markup.row("🔄 Басынан баслаў")
     return markup
 
-@bot.message_handler(func=lambda message: message.text == "🔄 Бошқатдан бошлаш")
+def get_locations_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("Қоңырат", "Нөкис")
+    markup.row("Қанлыкөл", "Шоманай")
+    markup.row("Ақшолақ", "Мойнақ")
+    markup.row("Сода завод", "Басқа мәнзил")
+    markup.row("🔄 Басынан баслаў")
+    return markup
+
+def get_people_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("1 адам", "2 адам")
+    markup.row("3 адам", "4 адам (салон)")
+    markup.row("📦 Почта / Жүк")
+    markup.row("🔄 Басынан баслаў")
+    return markup
+
+@bot.message_handler(func=lambda message: message.text in ["🔄 Басынан баслаў", "Басынан баслаў", "🔄 Бошқатдан бошлаш"])
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.chat.id
     user_data[user_id] = {}
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("Қўнғирот", "Нөкис")
-    markup.row("Хўжайли", "Бошқа манзил")
-    markup.row("🔄 Бошқатдан бошлаш")
-    
+
+    welcome_text = (
+        "Region 95 Taxi (Қонырат — Нукус) ботына хош келипсиз! 🚕\n"
+        "Биз бенен машына табыу оте ансат хам тез! 24/7\n\n"
+        "📍 <b>1. Қайси манзилдан йўлга чиқасиз?</b>"
+    )
     bot.send_message(
-        user_id, 
-        "Ассалому алайкум! Такси буюртма бериш ботига хуш келибсиз.\n\n📍 <b>1. Қайси манзилдан йўлга чиқасиз?</b>", 
-        parse_mode="HTML", 
-        reply_markup=markup
+        user_id,
+        welcome_text,
+        parse_mode="HTML",
+        reply_markup=get_locations_keyboard()
     )
     bot.register_next_step_handler(message, step_qayerdan)
 
 def step_qayerdan(message):
     user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
+    text = message.text
+
+    if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
         send_welcome(message)
         return
 
-    user_data[user_id]['qayerdan'] = message.text
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("Нөкис", "Қўнғирот")
-    markup.row("Тўрткўл", "Тошкент")
-    markup.row("Бошқа манзил")
-    markup.row("🔄 Бошқатдан бошлаш")
-    
+    user_data[user_id]['qayerdan'] = text
+
     bot.send_message(
-        user_id, 
-        "🏁 <b>2. Қайси манзилга/шаҳарга борасиз?</b>", 
-        parse_mode="HTML", 
-        reply_markup=markup
+        user_id,
+        "🏁 <b>2. Қайси манзилга барасиз?</b>",
+        parse_mode="HTML",
+        reply_markup=get_locations_keyboard()
     )
     bot.register_next_step_handler(message, step_qayerga)
 
 def step_qayerga(message):
     user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
+    text = message.text
+
+    if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
         send_welcome(message)
         return
 
-    user_data[user_id]['qayerga'] = message.text
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("⚡ Ҳозироқ (тезда)", "Эртага 09:00 га")
-    markup.row("Эртага 11:00 га", "Эртага 14:00 га")
-    markup.row("Бошқа вақтни ёзиш", "🔄 Бошқатдан бошлаш")
-    
-    bot.send_message(
-        user_id, 
-        "⏰ <b>3. Қачон йўлга чиқасиз?</b>\n(Тайёр вақтлардан танланг ёки ўзингиз хоҳлаган вақтни ёзиб юборинг):", 
-        parse_mode="HTML", 
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, step_vaqt)
+    user_data[user_id]['qayerga'] = text
 
-def step_vaqt(message):
+    bot.send_message(
+        user_id,
+        "👥 <b>3. Нече адам барасыз яки почтама?</b>",
+        parse_mode="HTML",
+        reply_markup=get_people_keyboard()
+    )
+    bot.register_next_step_handler(message, step_odam_soni)
+
+def step_odam_soni(message):
     user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
+    text = message.text
+
+    if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
         send_welcome(message)
         return
 
-    user_data[user_id]['vaqt'] = message.text
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn_loc = types.KeyboardButton("📍 Аниқ локацияни юбориш", request_location=True)
-    markup.add(btn_loc)
-    markup.row("Локация юбормайман")
-    markup.row("🔄 Бошқатдан бошлаш")
-    
+    user_data[user_id]['odam_soni'] = text
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    btn_phone = types.KeyboardButton("📱 Телефон номерди жибериў", request_contact=True)
+    markup.row(btn_phone)
+    markup.row("🔄 Басынан баслаў")
+
     bot.send_message(
-        user_id, 
-        "📍 <b>4. Ҳайдовчи сизни тез топиши учун турган жойингиз (локация)ни юборинг:</b>\n(«📍 Аниқ локацияни юбориш» тугмасини босинг ёки мўлжални ёзинг)", 
-        parse_mode="HTML", 
+        user_id,
+        "📱 <b>4. Телефон номериңизди жибериң яки жазың:</b>",
+        parse_mode="HTML",
         reply_markup=markup
     )
-    bot.register_next_step_handler(message, step_lokatsiya)
+    bot.register_next_step_handler(message, step_phone)
 
-def step_lokatsiya(message):
+def step_phone(message):
     user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
-        send_welcome(message)
-        return
 
-    if message.location:
-        user_data[user_id]['lat'] = message.location.latitude
-        user_data[user_id]['lon'] = message.location.longitude
-        user_data[user_id]['lokatsiya_matn'] = "📍 Харита орқали юборилди"
-    else:
-        user_data[user_id]['lat'] = None
-        user_data[user_id]['lon'] = None
-        user_data[user_id]['lokatsiya_matn'] = message.text
-
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("1 киши", "2 киши")
-    markup.row("3 киши", "4 киши (Салон)")
-    markup.row("🔄 Бошқатдан бошлаш")
-    
-    bot.send_message(
-        user_id, 
-        "👥 <b>5. Неча киши йўлга чиқасиз?</b>", 
-        parse_mode="HTML", 
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, step_odam)
-
-def step_odam(message):
-    user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
-        send_welcome(message)
-        return
-
-    user_data[user_id]['odam'] = message.text
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("Йўқ, фақат ўзим(из)")
-    markup.row("Ёш бола бор", "Катта сумка/юк бор")
-    markup.row("Ҳам бола, ҳам катта юк бор")
-    markup.row("🔄 Бошқатдан бошлаш")
-    
-    bot.send_message(
-        user_id, 
-        "🧳 <b>6. Ёнингизда ёш бола ёки катта сумка (юк) борми?</b>", 
-        parse_mode="HTML", 
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, step_yuk)
-
-def step_yuk(message):
-    user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
-        send_welcome(message)
-        return
-
-    user_data[user_id]['yuk'] = message.text
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn_contact = types.KeyboardButton("📱 Телефон рақамни юбориш", request_contact=True)
-    markup.add(btn_contact)
-    markup.row("🔄 Бошқатдан бошлаш")
-    
-    bot.send_message(
-        user_id, 
-        "📞 <b>7. Телефон рақамингизни қолдиринг:</b>\n(Пастдаги «Телефон рақамни юбориш» тугмасини босинг ёки рақамни ёзинг)", 
-        parse_mode="HTML", 
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, step_telefon)
-
-def step_telefon(message):
-    user_id = message.chat.id
-    if message.text == "🔄 Бошқатдан бошлаш":
+    if message.text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
         send_welcome(message)
         return
 
     if message.contact:
         phone = message.contact.phone_number
-        if not phone.startswith("+"):
-            phone = f"+{phone}"
     else:
         phone = message.text
-        
-    data = user_data.get(user_id, {})
-    username = f"@{message.from_user.username}" if message.from_user.username else "Кўрсатилмаган"
-    
-    elon_text = (
-        "🚖 <b>ЯНГИ БУЮРТМА!</b>\n\n"
-        f"📍 <b>Қаердан:</b> {data.get('qayerdan')}\n"
-        f"🏁 <b>Қаерга:</b> {data.get('qayerga')}\n"
-        f"⏰ <b>Вақти:</b> {data.get('vaqt')}\n"
-        f"🗺 <b>Локация/Мўлжал:</b> {data.get('lokatsiya_matn')}\n"
-        f"👥 <b>Одам сони:</b> {data.get('odam')}\n"
-        f"🧳 <b>Қўшимча:</b> {data.get('yuk')}\n"
-        f"📞 <b>Тел:</b> {phone}\n"
-        f"👤 <b>Мижоз:</b> {message.from_user.full_name} ({username})"
-    )
-    
-    try:
-        bot.send_message(GROUP_ID, elon_text, parse_mode="HTML")
-        if data.get('lat') and data.get('lon'):
-            bot.send_location(GROUP_ID, latitude=data.get('lat'), longitude=data.get('lon'))
-    except Exception as e:
-        print(f"Гуруҳга юборишда хатолик: {e}")
-        
+
+    user_data[user_id]['phone'] = phone
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("Жок, тек адрес жеткиликли")
+    markup.row("🔄 Басынан баслаў")
+
     bot.send_message(
-        user_id, 
-        "✅ <b>Буюртмангиз қабул қилинди!</b>\nТез орада ҳайдовчи сиз билан боғланади.\n\nЯнги буюртма бериш учун пастдаги тугмани босинг:", 
-        parse_mode="HTML", 
-        reply_markup=get_restart_keyboard()
+        user_id,
+        "💬 <b>5. Қосымша мәнзил яки белгили орын бар ма?</b>\n(Мысалы: Базар алды, Вокзал, 14-дом)",
+        parse_mode="HTML",
+        reply_markup=markup
+    )
+    bot.register_next_step_handler(message, step_qoshimcha)
+
+def step_qoshimcha(message):
+    user_id = message.chat.id
+    text = message.text
+
+    if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
+        send_welcome(message)
+        return
+
+    user_data[user_id]['qoshimcha'] = text
+
+    qayerdan = user_data[user_id].get('qayerdan', '')
+    qayerga = user_data[user_id].get('qayerga', '')
+    odam = user_data[user_id].get('odam_soni', '')
+    phone = user_data[user_id].get('phone', '')
+    qoshimcha = user_data[user_id].get('qoshimcha', '')
+    user_name = message.from_user.first_name
+
+    order_text = (
+        "🚕 <b>ЖАҢА БУЙЫРТПА!</b>\n\n"
+        f"📍 <b>Мәнзил:</b> {qayerdan} ➡️ {qayerga}\n"
+        f"👤 <b>Клиент:</b> {user_name}\n"
+        f"👥 <b>Адам саны:</b> {odam}\n"
+        f"📱 <b>Тел:</b> {phone}\n"
+        f"💬 <b>Қосымша:</b> {qoshimcha}\n"
     )
 
-print("Бот муваффақиятли ишга тушди!")
-bot.infinity_polling()
+    marshrut = f"{qayerdan} {qayerga}"
+
+    if "Мойнақ" in marshrut:
+        target_group = GROUP_MOYNAQ
+    elif "Сода завод" in marshrut:
+        target_group = GROUP_SODAZAVOD
+    elif "Ақшолақ" in marshrut:
+        target_group = GROUP_AKSHOLAQ
+    elif "Қанлыкөл" in marshrut or "Канлыкол" in marshrut:
+        target_group = GROUP_QANLIKOL
+    elif "Шоманай" in marshrut:
+        target_group = GROUP_SHOMANAY
+    else:
+        target_group = GROUP_NUKUS
+
+    try:
+        bot.send_message(chat_id=target_group, text=order_text, parse_mode="HTML")
+        bot.send_message(
+            user_id,
+            "✅ <b>Буйыртпаңыз қабыл етилди!</b>\nТез арада ҳайдаўшы сиз бенен байланысады.",
+            parse_mode="HTML",
+            reply_markup=get_restart_keyboard()
+        )
+    except Exception as e:
+        bot.send_message(
+            user_id,
+            "⚠️ Буйыртпаны жибериўде қәтелик жүз берди. Илтимас, қайтадан урынып көриң.",
+            reply_markup=get_restart_keyboard()
+        )
+
+if __name__ == '__main__':
+    bot.infinity_polling()
