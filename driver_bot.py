@@ -1,25 +1,24 @@
-import telebot
-from telebot import types
-import sqlite3
 import os
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import sqlite3
+import telebot
+from telebot import types
+from flask import Flask
 
-# --- Render'да ботни фаол (Live) сақлаб туриш учун веб-сервер ---
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b"Driver bot is alive!")
+# --- Render хизмати учун кичик Flask веб-сервер ---
+app = Flask(__name__)
 
-def run_web_server():
+@app.route('/')
+def home():
+    return "Driver bot is running!", 200
+
+def run_web():
     port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
+    app.run(host="0.0.0.0", port=port)
 
-threading.Thread(target=run_web_server, daemon=True).start()
-# -------------------------------------------------------------
+# Веб-серверни алоҳида оқиб турувчи оқимда (фонода) юргизамиз
+threading.Thread(target=run_web, daemon=True).start()
+# -------------------------------------------------
 
 DRIVER_BOT_TOKEN = "8840191609:AAGPVc20CYJF4Nw7gHDzc0lGunrsD9WMeW0"
 bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
@@ -27,7 +26,7 @@ bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 ADMIN_CARD = "8600 **** **** **** (Азат)"
 WELCOME_BONUS = 30000
 
-# Гуруҳларингиз линклари
+# Йўналишлар ва гуруҳ ҳаволалари
 ROUTE_GROUPS = {
     "Қоңырат — Нөкис": "https://t.me/+jEYRM45p2M82OWQy",
     "Қоңырат — Мойнақ": "https://t.me/+-pDjIZzOC2NkMGMy",
@@ -199,4 +198,55 @@ def show_balance(message):
 
 @bot.message_handler(func=lambda m: m.text == "📥 Балансты толтырыў")
 def top_up_balance(message):
-    user_id
+    user_id = message.chat.id
+    bot.send_message(
+        user_id,
+        f"💳 <b>Балансты толтырыў ушын:</b>\n\n"
+        f"1. Төмендеги картаға төлем қылың:\n"
+        f"<code>{ADMIN_CARD}</code>\n\n"
+        f"2. Төлем чегин усы жерге жибериң.\n\n"
+        f"Диспетчер тексерип, балансыңызды көтерип береди!",
+        parse_mode="HTML"
+    )
+
+@bot.message_handler(func=lambda m: m.text == "👤 Профилим")
+def show_profile(message):
+    user_id = message.chat.id
+    driver = get_driver(user_id)
+    if not driver:
+        start_cmd(message)
+        return
+
+    route = driver[4]
+    group_link = ROUTE_GROUPS.get(route, "https://t.me/")
+
+    inline_markup = types.InlineKeyboardMarkup()
+    btn_group = types.InlineKeyboardButton("🚕 Мениң топарым", url=group_link)
+    inline_markup.add(btn_group)
+
+    bot.send_message(
+        user_id,
+        f"👤 <b>Ҳайдавшы профили:</b>\n\n"
+        f"👤 <b>Аты:</b> {driver[1]}\n"
+        f"📞 <b>Телефон:</b> {driver[2]}\n"
+        f"🚘 <b>Машина:</b> {driver[3]}\n"
+        f"🛣 <b>Бағдары:</b> {route}\n"
+        f"💰 <b>Баланс:</b> {driver[5]:,} сўм",
+        parse_mode="HTML",
+        reply_markup=inline_markup
+    )
+
+@bot.message_handler(func=lambda m: m.text == "ℹ️ Қолланба")
+def show_rules(message):
+    bot.send_message(
+        message.chat.id,
+        "ℹ️ <b>Қағыйдалар:</b>\n\n"
+        "1. Буйыртпа топарға түскенде «Буйыртпаны алыў» батырмасын басың.\n"
+        "2. Клиент пенен тез арада байланысып, барыў ўақтын айтың.\n"
+        "3. Балансыңызда буйыртпа алыў ушын жетерли қаржы болыўы шәрт.",
+        parse_mode="HTML"
+    )
+
+if __name__ == '__main__':
+    print("Starting driver bot...")
+    bot.infinity_polling(skip_pending=True)
