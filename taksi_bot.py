@@ -18,15 +18,15 @@ Thread(target=run).start()
 
 
 # Укажите ваш токен бота и ID группы
-BOT_TOKEN = "8820304382:AAE-iWzMjnjRZJO39KfAjS2lRi6XaURaisQ"
+BOT_TOKEN = "8820304382:AAH8gAI8BEOWS2D0j80g585XrZJYsBvJpRQ"
 
-# Гуруҳлар ID рақамлари
+# Тўғриланган гуруҳлар ID рақамлари
 GROUP_NUKUS = -1004325420878
-GROUP_MOYNAQ = -5450445768
-GROUP_SODAZAVOD = -5533102153
-GROUP_AKSHOLAQ = -5302796049
-GROUP_QANLIKOL = -5424177269
-GROUP_SHOMANAY = -5569534477
+GROUP_SHOMANAY = -1004319753073   # Шоманай — Қоңырат
+GROUP_QANLIKOL = -1004316722887   # Қанлыкөл — Қоңырат
+GROUP_AKSHOLAQ = -1004481922507   # Ақшолақ — Қоңырат
+GROUP_SODAZAVOD = -1003771047184  # Сода завод
+GROUP_MOYNAQ = -1003980363859     # Мойнақ
 
 bot = telebot.TeleBot(BOT_TOKEN)
 user_data = {}
@@ -217,6 +217,8 @@ def step_location_and_send(message):
     )
 
     marshrut = f"{qayerdan} {qayerga}"
+
+    # Гуруҳларни текшириш ва ажратиш
     if "Мойнақ" in marshrut:
         target_group = GROUP_MOYNAQ
     elif "Сода завод" in marshrut:
