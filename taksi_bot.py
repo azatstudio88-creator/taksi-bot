@@ -18,9 +18,9 @@ Thread(target=run).start()
 
 
 # Укажите ваш токен бота и ID группы
-BOT_TOKEN = "8820304382:AAHuWDZ3MiRdvlU2rOk2XJ3zcUq8SMxU_L0"
+BOT_TOKEN = "8820304382:AAH8gAI8BEOWS2D0j80g585XrZJYsBvJpRQ"
 
-# Тўғриланган гуруҳлар ID рақамлари
+# Топтордун ID номерлери
 GROUP_NUKUS = -1004325420878
 GROUP_SHOMANAY = -1004319753073   # Шоманай — Қоңырат
 GROUP_QANLIKOL = -1004316722887   # Қанлыкөл — Қоңырат
@@ -28,10 +28,12 @@ GROUP_AKSHOLAQ = -1004481922507   # Ақшолақ — Қоңырат
 GROUP_SODAZAVOD = -1003771047184  # Сода завод
 GROUP_MOYNAQ = -1003980363859     # Мойнақ
 
+VIDEO_FILE_ID = "" 
+
 bot = telebot.TeleBot(BOT_TOKEN)
 user_data = {}
 
-# ----------------- ТУГМАЛАР (КЛАВИАТУРА) -----------------
+# ----------------- БАСКЫЧТАР (КЛАВИАТУРА) -----------------
 def get_restart_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("🔄 Басынан баслаў")
@@ -42,7 +44,14 @@ def get_locations_keyboard():
     markup.row("Қоңырат", "Нөкис")
     markup.row("Қанлыкөл", "Шоманай")
     markup.row("Ақшолақ", "Мойнақ")
-    markup.row("Сода завод", "Басқа мәнзил")
+    markup.row("Сода завод")
+    markup.row("📹 Қолланба", "🔄 Басынан баслаў")
+    return markup
+
+def get_time_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("⚡ Ҳәзирге")
+    markup.row("09:00", "12:00", "18:00")
     markup.row("🔄 Басынан баслаў")
     return markup
 
@@ -61,7 +70,7 @@ def get_extra_keyboard():
     markup.row("🔄 Басынан баслаў")
     return markup
 
-# ----------------- БОТ ҚАДАМЛАРИ -----------------
+# ----------------- БОТ КАДАМДАРЫ -----------------
 @bot.message_handler(func=lambda m: m.text in ["🔄 Басынан баслаў", "Басынан баслаў", "🔄 Бошқатдан бошлаш", "/start"])
 def send_welcome(message):
     user_id = message.chat.id
@@ -70,7 +79,43 @@ def send_welcome(message):
 
     bot.send_message(
         user_id,
-        "📍 <b>1. Қайсы мәнзилден жолға шығасыз?</b>",
+        "📍 <b>1. Қайсы мәнзилден жолға шығасыз?</b>\n(Боттан пайдаланыўды көриў ушын <b>«📹 Қолланба»</b> тугмесин басың)",
+        parse_mode="HTML",
+        reply_markup=get_locations_keyboard()
+    )
+    bot.register_next_step_handler(message, step_qayerdan)
+
+@bot.message_handler(func=lambda m: m.text in ["📹 Қолланба", "Қолланба"])
+def show_instruction(message):
+    user_id = message.chat.id
+    bot.clear_step_handler_by_chat_id(user_id)
+
+    if VIDEO_FILE_ID:
+        try:
+            bot.send_video(
+                user_id,
+                video=VIDEO_FILE_ID,
+                caption="📹 <b>Боттан пайдаланыў бойынша видео-қолланба.</b>\n\nТөмендеги тугмелерден мәнзилди сайлап, буйыртпа берсеңиз болады:",
+                parse_mode="HTML",
+                reply_markup=get_locations_keyboard()
+            )
+            bot.register_next_step_handler(message, step_qayerdan)
+            return
+        except Exception:
+            pass
+
+    caption_text = (
+        "📹 <b>Боттан пайдаланыў қолланбасы:</b>\n\n"
+        "1. Жолға шығатуғын ҳәм баратуғын мәнзилди сайлаң.\n"
+        "2. Жолға шығыў ўақтын таңлаң.\n"
+        "3. Адам санын яки жүк/почтаны көрсетиң.\n"
+        "4. Қосымша бала яки сумка барын сайлаң.\n"
+        "5. Телефон номериңизди ҳәм мәнзил локациясын жибериң.\n\n"
+        "Буйыртпа бергеннен соң, такси сизге тез арада қоңыраў қылады!"
+    )
+    bot.send_message(
+        user_id,
+        caption_text,
         parse_mode="HTML",
         reply_markup=get_locations_keyboard()
     )
@@ -82,6 +127,9 @@ def step_qayerdan(message):
 
     if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
         send_welcome(message)
+        return
+    elif text in ["📹 Қолланба", "Қолланба"]:
+        show_instruction(message)
         return
 
     user_data[user_id]['qayerdan'] = text
@@ -101,12 +149,33 @@ def step_qayerga(message):
     if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
         send_welcome(message)
         return
+    elif text in ["📹 Қолланба", "Қолланба"]:
+        show_instruction(message)
+        return
 
     user_data[user_id]['qayerga'] = text
 
     bot.send_message(
         user_id,
-        "👥 <b>3. Неше адам яки почта?</b>",
+        "⏰ <b>3. Қайсы ўақытта жолға шығасыз?</b>\n(Тугмелерден сайлаң яки басқа ўақыт болса жазып жибериң):",
+        parse_mode="HTML",
+        reply_markup=get_time_keyboard()
+    )
+    bot.register_next_step_handler(message, step_vaqt)
+
+def step_vaqt(message):
+    user_id = message.chat.id
+    text = message.text
+
+    if text in ["🔄 Басынан баслаў", "Басынан баслаў"]:
+        send_welcome(message)
+        return
+
+    user_data[user_id]['vaqt'] = text
+
+    bot.send_message(
+        user_id,
+        "👥 <b>4. Неше адам яки почта?</b>",
         parse_mode="HTML",
         reply_markup=get_people_keyboard()
     )
@@ -124,7 +193,7 @@ def step_odam(message):
 
     bot.send_message(
         user_id,
-        "ℹ️ <b>4. Қосымша кимлер? (нелер) бар?</b>",
+        "ℹ️ <b>5. Қосымша кимлер? (нелер) бар?</b>",
         parse_mode="HTML",
         reply_markup=get_extra_keyboard()
     )
@@ -147,7 +216,7 @@ def step_extra(message):
 
     bot.send_message(
         user_id,
-        "📞 <b>5. Телефон номериңизди жибериң яки жазың:</b>",
+        "📞 <b>6. Телефон номериңизди жибериң яки жазың:</b>",
         parse_mode="HTML",
         reply_markup=markup
     )
@@ -175,13 +244,13 @@ def step_phone(message):
 
     bot.send_message(
         user_id,
-        "📍 <b>6. Мәнзил локациясын жибериң:</b>\n(Егер керек болмаса, «Керек емес» тугмесин басың)",
+        "📍 <b>7. Мәнзил локациясын жибериң:</b>\n(Егер керек болмаса, «Керек емес» тугмесин басың)",
         parse_mode="HTML",
         reply_markup=markup
     )
     bot.register_next_step_handler(message, step_location_and_send)
 
-# ----------------- БУЮРТМАНИ ЮБОРИШ -----------------
+# ----------------- БУЙРУТМАНЫ ЖӨНӨТҮҮ -----------------
 def step_location_and_send(message):
     user_id = message.chat.id
 
@@ -200,6 +269,7 @@ def step_location_and_send(message):
 
     qayerdan = user_data[user_id].get('qayerdan', '-')
     qayerga = user_data[user_id].get('qayerga', '-')
+    vaqt = user_data[user_id].get('vaqt', '-')
     odam = user_data[user_id].get('odam', '-')
     extra = user_data[user_id].get('extra', '-')
     phone = user_data[user_id].get('phone', '-')
@@ -209,6 +279,7 @@ def step_location_and_send(message):
         "🚕 <b>ЖАҢА БУЙЫРТПА!</b>\n\n"
         f"📍 <b>Қайдан:</b> {qayerdan}\n"
         f"🏁 <b>Қайда:</b> {qayerga}\n"
+        f"⏰ <b>Ўақты:</b> {vaqt}\n"
         f"👥 <b>Адам/Почта:</b> {odam}\n"
         f"➕ <b>Қосымша:</b> {extra}\n"
         f"📱 <b>Телефон:</b> {phone}\n"
@@ -218,7 +289,7 @@ def step_location_and_send(message):
 
     marshrut = f"{qayerdan} {qayerga}"
 
-    # Гуруҳларни текшириш ва ажратиш
+    # Топторго бөлүштүрүү
     if "Мойнақ" in marshrut:
         target_group = GROUP_MOYNAQ
     elif "Сода завод" in marshrut:
