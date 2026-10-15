@@ -25,7 +25,7 @@ threading.Thread(target=run_web, daemon=True).start()
 # 2. БОТЛАРНИНГ ТОКЕНЛАРИ ВА СОЗЛАМАЛАРИ
 # ==============================================================================
 DRIVER_BOT_TOKEN = "8840191609:AAGPVc20CYJF4Nw7gHDzc0lGunrsD9WMeW0"
-TAXI_BOT_TOKEN   = "8820304382:AAHL7I8ow2LpNsMmURXoW7ZN6SmpazPYplM"
+TAXI_BOT_TOKEN   = "8820304382:AAFSFy4zKZjnDkghuKbUDDXXJXdgRc3iZSo"
 
 driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot   = telebot.TeleBot(TAXI_BOT_TOKEN)
