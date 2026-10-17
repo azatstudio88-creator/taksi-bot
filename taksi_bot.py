@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import uuid
+import urllib.parse
 from threading import Thread
 import telebot
 from telebot import types
@@ -24,7 +25,6 @@ Thread(target=run, daemon=True).start()
 BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-
 GROUP_NUKUS = -1004325420878
 GROUP_SHOMANAY = -1004319753073
 GROUP_QANLIKOL = -1004316722887
@@ -32,9 +32,9 @@ GROUP_AKSHOLAQ = -1004481922507
 GROUP_SODAZAVOD = -1003771047184
 GROUP_MOYNAQ = -1003980363859
 
-VIDEO_FILE_ID = "" 
+# Мижозлар ботининг юзернейми
+CLIENT_BOT_USERNAME = "qonirat_nukus_taksi_bot"
 
-bot = telebot.TeleBot(BOT_TOKEN)
 user_data = {}
 orders_data = {}
 
@@ -69,6 +69,7 @@ def get_locations_keyboard():
     markup.row("Қанлыкөл", "Шоманай")
     markup.row("Ақшолақ", "Мойнақ")
     markup.row("Сода завод")
+    markup.row("📲 Досларға үлесиў")
     markup.row("📹 Қолланба", "🔄 Басынан баслаў")
     return markup
 
@@ -99,6 +100,37 @@ def get_order_inline_keyboard(order_id):
     btn_take = types.InlineKeyboardButton("🚖 Буйрықты алыў", callback_data=f"take_{order_id}")
     markup.add(btn_take)
     return markup
+
+# ----------------- ДЎСТЛАРГА УЛАШИШ (РЕКЛАМА БИЛАН) -----------------
+@bot.message_handler(func=lambda m: m.text in ["📲 Досларға үлесиў", "📲 Досларға жибериў"])
+def share_bot_handler(message):
+    promo_text = (
+        "Бир клик — ҳәм такси есигиңиз алдында! 🚖\n\n"
+        "🌟 REGION 95 — РАЙОНЛАРАРА ТАКСИ ХЫЗМЕТИ\n\n"
+        "📍 ТИЙКАРҒЫ ЖӨНЕЛИСЛЕР:\n"
+        "🔹 НӨКИС — ҚОҢЫРАТ\n"
+        "🔹 ҚОҢЫРАТ — МОЙНАҚ\n"
+        "🔹 ҚОҢЫРАТ — АҚШОЛАҚ\n"
+        "🔹 НӨКИС — ҚАНЛЫКӨЛ\n"
+        "🔹 НӨКИС — ШОМАНАЙ\n"
+        "🔹 ҚОҢЫРАТ — ҚАНЛЫКӨЛ\n"
+        "🔹 ҚОҢЫРАТ — ШОМАНАЙ\n"
+        "🔹 ҚОҢЫРАТ — СОДА ЗАВОД\n\n"
+        "⚡️ Тез, қолай ҳәм исенимли!\n"
+        "⏱ Бар-жоғы 30 секунд ишинде айдаўшы сиз бенен байланысқа шығады!"
+    )
+
+    encoded_text = urllib.parse.quote(promo_text)
+    share_url = f"https://t.me/share/url?url=https://t.me/{CLIENT_BOT_USERNAME}&text={encoded_text}"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📲 Досларға жибериў (бир клик пенен)", url=share_url))
+
+    bot.send_message(
+        message.chat.id,
+        "Төмендеги батырманы басып, ботты досларыңызға ҳәм топарларға толық рекламасы менен бир клик пенен жибериң:",
+        reply_markup=markup
+    )
 
 # ----------------- МИЖОЗ БОСҚИЧЛАРИ -----------------
 @bot.message_handler(func=lambda m: m.text in ["🔄 Басынан баслаў", "Басынан баслаў", "🔄 Бошқатдан бошлаш", "/start"])
@@ -147,6 +179,10 @@ def step_qayerdan(message):
     elif text in ["📹 Қолланба", "Қолланба"]:
         show_instruction(message)
         return
+    elif text in ["📲 Досларға үлесиў", "📲 Досларға жибериў"]:
+        share_bot_handler(message)
+        bot.register_next_step_handler(message, step_qayerdan)
+        return
 
     user_data[user_id]['qayerdan'] = text
 
@@ -167,6 +203,10 @@ def step_qayerga(message):
         return
     elif text in ["📹 Қолланба", "Қолланба"]:
         show_instruction(message)
+        return
+    elif text in ["📲 Досларға үлесиў", "📲 Досларға жибериў"]:
+        share_bot_handler(message)
+        bot.register_next_step_handler(message, step_qayerga)
         return
 
     user_data[user_id]['qayerga'] = text
