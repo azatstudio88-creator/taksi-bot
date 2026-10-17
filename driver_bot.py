@@ -21,7 +21,7 @@ def run_web():
 threading.Thread(target=run_web, daemon=True).start()
 
 # ==============================================================================
-# 2. СОЗЛАМАЛАР, ТОКЕНЛАР ВА 8 ТА ЙЎНАЛИШ
+# 2. СОЗЛАМАЛАР ВА 8 ТА ЙЎНАЛИШ
 # ==============================================================================
 DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN")
 TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
@@ -29,54 +29,63 @@ TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
 driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
-# Анкеталар ва сүўретлер келетуғын жабық админ каналыңыз ID номери
+# Анкеталар тушадиган ёпиқ админ канали
 ADMIN_CHANNEL_ID = -1004484123000
 
-# Бот юзернейми (басқа айдаўшыларға тарқатыў ушын)
+# Бот юзернейми ва шапка матни
 DRIVER_BOT_USERNAME = "TAXI_REGION95_ADMIN_bot"
 HEADER_LINK = f"📲 <b>Басқа айдаўшыларға тарқатыў ушын силтеме:</b> @{DRIVER_BOT_USERNAME}\n" + "—" * 30 + "\n\n"
 
-# БАРЛЫҚ 8 ЖӨНЕЛИС, ГРУППА ИД НОМЕРЛЕРИ ҲӘМ ҲӘР БИР АДАМ УШЫН КОМИССИЯ
+# БАРЛЫҚ 8 ЖӨНЕЛИС, ГРУППА ИД НОМЕРЛЕРИ ҲӘМ ТАЙЫН СИЛТЕМЕЛЕРИ
+# (Егер группада бот админ болмаса, төмендеги invite_link орнына группаңыздың жеке силтемесин қойың)
 ROUTE_DATA = {
     "nukus_qonirat": {
         "title": "Нөкис — Қоңырат",
         "group_id": -1004325420878,
-        "fee_per_person": 3000
+        "fee_per_person": 3000,
+        "invite_link": "https://t.me/+NukusQoniratGroup"
     },
     "qonirat_shomanay": {
         "title": "Қоңырат — Шоманай",
         "group_id": -1004319753073,
-        "fee_per_person": 1500
+        "fee_per_person": 1500,
+        "invite_link": "https://t.me/+QoniratShomanayGroup"
     },
     "qonirat_qanlikol": {
         "title": "Қоңырат — Қанлыкөл",
         "group_id": -1004316722887,
-        "fee_per_person": 1000
+        "fee_per_person": 1000,
+        "invite_link": "https://t.me/+QoniratQanlikolGroup"
     },
     "qonirat_aksholaq": {
         "title": "Қоңырат — Ақшолақ",
         "group_id": -1004481922507,
-        "fee_per_person": 2000
+        "fee_per_person": 2000,
+        "invite_link": "https://t.me/+QoniratAksholaqGroup"
     },
     "qonirat_sodazavod": {
         "title": "Қоңырат — Сода завод",
         "group_id": -1003771047184,
-        "fee_per_person": 1000
+        "fee_per_person": 1000,
+        "invite_link": "https://t.me/+QoniratSodazavodGroup"
     },
     "qonirat_moynaq": {
         "title": "Қоңырат — Мойнақ",
         "group_id": -1003980363859,
-        "fee_per_person": 2000
+        "fee_per_person": 2000,
+        "invite_link": "https://t.me/+QoniratMoynaqGroup"
     },
     "nukus_qanlikol": {
         "title": "Нөкис — Қанлыкөл",
         "group_id": -1004223200470,
-        "fee_per_person": 2000
+        "fee_per_person": 2000,
+        "invite_link": "https://t.me/+NukusQanlikolGroup"
     },
     "nukus_shomanay": {
         "title": "Нөкис — Шоманай",
         "group_id": -1004450147063,
-        "fee_per_person": 2000
+        "fee_per_person": 2000,
+        "invite_link": "https://t.me/+NukusShomanayGroup"
     }
 }
 
@@ -86,7 +95,7 @@ driver_registration_data = {}
 orders_data = {}
 
 # ==============================================================================
-# 3. МАҒЛЫЎМАТЛАР БАЗАСЫ (SQLite)
+# 3. МАҒЛЫЎМАТЛАР БАЗАСИ (SQLite)
 # ==============================================================================
 def init_db():
     conn = sqlite3.connect('taxi_service.db')
@@ -120,7 +129,7 @@ def get_driver(user_id):
 def save_pending_driver(user_id, full_name, phone, route_key, car_model, car_number):
     conn = sqlite3.connect('taxi_service.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT bonus_given, balance FROM drivers WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT bonus_given FROM drivers WHERE user_id = ?", (user_id,))
     existing = cursor.fetchone()
 
     if existing:
@@ -173,15 +182,31 @@ def deduct_balance(user_id, amount):
     conn.close()
 
 # ==============================================================================
-# 4. АЙДАЎШЫНЫ ДИЗИМНЕН ӨТКЕРИЎ
+# 4. МЕНЮ ҲӘМ ТАРҚАТЫЎ БАТЫРМАЛАРЫ
 # ==============================================================================
 def get_driver_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn_balance = types.KeyboardButton("💰 Баланс")
     btn_profile = types.KeyboardButton("👤 Профилим")
     btn_rules = types.KeyboardButton("ℹ️ Қолланба")
-    markup.add(btn_profile, btn_rules)
+    markup.row(btn_balance)
+    markup.row(btn_profile, btn_rules)
     return markup
 
+def get_share_markup(user_id):
+    share_url = f"https://t.me/{DRIVER_BOT_USERNAME}?start={user_id}"
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton(
+            "📲 Ботты басқа айдаўшыларға тарқатыў",
+            url=f"https://t.me/share/url?url={share_url}&text=Айдаўшылар%20ботына%20қосылың!"
+        )
+    )
+    return markup
+
+# ==============================================================================
+# 5. ДИЗИМНЕН ӨТИЎ ЖОЛЫ
+# ==============================================================================
 @driver_bot.message_handler(commands=['start'])
 def driver_start(message):
     driver = get_driver(message.chat.id)
@@ -191,6 +216,11 @@ def driver_start(message):
             HEADER_LINK + f"Ассалаўма әлейкум, <b>{driver[1]}</b>!\nСиз тастыйықланған айдаўшысыз.",
             parse_mode="HTML",
             reply_markup=get_driver_main_keyboard()
+        )
+        driver_bot.send_message(
+            message.chat.id,
+            "Ботты басқа айдаўшыларға тарқатыў ушын төмендеги батырманы басың:",
+            reply_markup=get_share_markup(message.chat.id)
         )
     elif driver and driver[7] == 'pending':
         driver_bot.send_message(
@@ -324,12 +354,12 @@ def process_tech_passport(message):
     driver_bot.send_message(
         chat_id,
         HEADER_LINK + "✅ <b>Мағлыўматларыңыз админге жиберилди!</b>\n\n"
-        "Ҳүжжетлериңиз тексерилип тастыйықланғаннан соң топарға кириў силтемеси жибериледи.",
+        "Ҳүжжетлериңиз админ тәрепинен тексерилип тастыйықланғаннан соң топарға кириў силтемеси жибериледи.",
         parse_mode="HTML"
     )
 
 # ==============================================================================
-# 5. КАНАЛДА ТАСТИЙЫҚЛАЎ / БИЙКАР ЕТИЎ (АДМИН)
+# 6. КАНАЛДА ТАСТИЙЫҚЛАЎ (АДМИН)
 # ==============================================================================
 @driver_bot.callback_query_handler(func=lambda call: call.data.startswith("approve_") or call.data.startswith("reject_"))
 def handle_admin_decision(call):
@@ -355,17 +385,21 @@ def handle_admin_decision(call):
         route_info = ROUTE_DATA.get(route_key, {})
         group_id = route_info.get("group_id")
 
+        # Агар бот гуруҳда админ бўлса янги линк яратади, бўлмаса тайёр invite_link ни олади:
+        invite_link = None
         try:
-            invite_link = driver_bot.create_chat_invite_link(group_id, member_limit=1).invite_link
+            link_obj = driver_bot.create_chat_invite_link(group_id, member_limit=1)
+            invite_link = link_obj.invite_link
         except Exception:
-            invite_link = f"https://t.me/c/{str(group_id).replace('-100', '')}"
-
-        share_bot_link = f"https://t.me/{DRIVER_BOT_USERNAME}?start={target_user_id}"
+            invite_link = route_info.get("invite_link", f"https://t.me/c/{str(group_id).replace('-100', '')}")
 
         driver_markup = types.InlineKeyboardMarkup(row_width=1)
         driver_markup.add(
-            types.InlineKeyboardButton(f"🚖 «{route_info['title']}» топарына кириў", url=invite_link),
-            types.InlineKeyboardButton("📲 Ботты басқа айдаўшыларға тарқатыў", url=f"https://t.me/share/url?url={share_bot_link}&text=Такси%20хызметине%20айдаўшы%20болып%20қосылың!")
+            types.InlineKeyboardButton(f"🚖 «{route_info.get('title')}» топарына кириў", url=invite_link),
+            types.InlineKeyboardButton(
+                "📲 Ботты басқа айдаўшыларға тарқатыў",
+                url=f"https://t.me/share/url?url=https://t.me/{DRIVER_BOT_USERNAME}?start={target_user_id}&text=Айдаўшылар%20ботына%20қосылың!"
+            )
         )
 
         bonus_text = f"🎁 Сизге биринши мәрте дизимнен өткениңиз ушын <b>{WELCOME_BONUS} сўм</b> бонус берилди!\n\n" if bonus_added > 0 else "ℹ️ Сиз алдын дизимнен өткенсиз, сол себепли қосымша бонус берилмеди.\n\n"
@@ -374,8 +408,8 @@ def handle_admin_decision(call):
             target_user_id,
             HEADER_LINK + f"🎉 <b>Қутлықлаймыз! Сизниң арзаңыз тастыйықланды!</b>\n\n"
             f"{bonus_text}"
-            f"📍 Сизниң жөнелисиңиз: <b>{route_info['title']}</b>\n\n"
-            f"👇 Төмендеги батырма арқалы топарыңызға қосылың ҳәм ботты таныс шофёрларға тарқатың:",
+            f"📍 Сизниң жөнелисиңиз: <b>{route_info.get('title')}</b>\n\n"
+            f"👇 Төмендеги батырма арқалы өз топарыңызға қосылың:",
             parse_mode="HTML",
             reply_markup=driver_markup
         )
@@ -401,10 +435,10 @@ def handle_admin_decision(call):
         )
 
 # ==============================================================================
-# 6. АЙДАЎШЫ ПРОФИЛИ ВА ҚОЛЛАНБА
+# 7. БАЛАНС ТЕКШИРИШ, ПРОФИЛЬ ҲӘМ ҚОЛЛАНБА
 # ==============================================================================
-@driver_bot.message_handler(func=lambda m: m.text == "👤 Профилим")
-def driver_profile(message):
+@driver_bot.message_handler(func=lambda m: m.text in ["💰 Баланс", "👤 Профилим"])
+def driver_profile_and_balance(message):
     user_id = message.chat.id
     driver = get_driver(user_id)
     if not driver:
@@ -415,14 +449,14 @@ def driver_profile(message):
 
     text = (
         HEADER_LINK +
-        f"👤 <b>Айдаўшы профили</b>\n\n"
+        f"👤 <b>Айдаўшы кабинети</b>\n\n"
         f"👤 <b>Аты:</b> {driver[1]}\n"
         f"📞 <b>Тел:</b> {driver[2]}\n"
         f"📍 <b>Жөнелис:</b> {route_title}\n"
         f"🚘 <b>Машина:</b> {driver[4]} ({driver[5]})\n"
-        f"💰 <b>Баланс:</b> {driver[6]} сўм"
+        f"💰 <b>Балансыңыз:</b> <b>{driver[6]} сўм</b>"
     )
-    driver_bot.send_message(user_id, text, parse_mode="HTML")
+    driver_bot.send_message(user_id, text, parse_mode="HTML", reply_markup=get_share_markup(user_id))
 
 @driver_bot.message_handler(func=lambda m: m.text == "ℹ️ Қолланба")
 def driver_rules(message):
@@ -445,7 +479,7 @@ def driver_rules(message):
     )
 
 # ==============================================================================
-# 7. МИЖОЗ БОТИДАН БУЮРТМА ОЛИШ ВА ОДАМ СОНИГА ҚАРАБ КОМИССИЯ ЕЧИШ
+# 8. МИЖОЗ БОТИДАН БУЮРТМА ОЛИШ ВА ОДАМ СОНИГА ҚАРАБ КОМИССИЯ ЕЧИШ
 # ==============================================================================
 @taxi_bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
 def handle_accept_order(call):
@@ -471,7 +505,6 @@ def handle_accept_order(call):
         route_info = ROUTE_DATA.get(route_key, {})
         fee_per_person = route_info.get("fee_per_person", 2000)
 
-        # Буюртмадаги одамлар сони (дефолт 1 одам)
         passengers_count = int(order.get('passengers_count', 1))
         total_commission = fee_per_person * passengers_count
 
@@ -487,7 +520,6 @@ def handle_accept_order(call):
             )
             return
 
-        # Комиссияни балансдан ечиш
         deduct_balance(driver_user_id, total_commission)
 
         full_name = driver[1]
@@ -519,7 +551,7 @@ def handle_accept_order(call):
         taxi_bot.answer_callback_query(call.id, f"Қәтелик жүз берди: {str(e)}", show_alert=True)
 
 # ==============================================================================
-# 8. ИШГА ТУШИРИШ (ФАҚАТ DRIVER BOT)
+# 9. ИШГА ТУШИРИШ
 # ==============================================================================
 if __name__ == '__main__':
     print("Aydawshylar bot ishga tushdi...")
