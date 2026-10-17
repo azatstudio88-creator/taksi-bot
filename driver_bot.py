@@ -378,22 +378,9 @@ def driver_profile(message):
         driver_start(message)
         return
 
-    route = driver[4]
-    group_link = ROUTE_GROUPS.get(route, "https://t.me/")
-
-    inline_markup = types.InlineKeyboardMarkup()
-    btn_group = types.InlineKeyboardButton("🚕 Мениң топарым", url=group_link)
-    inline_markup.add(btn_group)
-
-    driver_bot.send_message(
-        user_id,
-        f"👤 <b>Ҳайдавшы профили:</b>\n\n"
-        f"👤 <b>Аты:</b> {driver[1]}\n"
-        f"📞 <b>Телефон:</b> {driver[2]}\n"
-        f"🛣 <b>Бағдары:</b> {route}\n"
-        f"💰 <b>Баланс:</b> {driver[5]:,} сўм",
-        parse_mode="HTML",
-        reply_markup=inline_markup
+if __name__ == '__main__':
+    print("Driver bot ishga tushdi...")
+    driver_bot.infinity_polling(skip_pending=True)
     )
 
 @driver_bot.message_handler(func=lambda m: m.text == "ℹ️ Қолланба")
