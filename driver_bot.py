@@ -24,8 +24,8 @@ threading.Thread(target=run_web, daemon=True).start()
 # ==============================================================================
 # 2. НАСТРОЙКИ И ТОКЕНЫ БОТОВ
 # ==============================================================================
-DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN", "8840191609:AAHNLMpazjnT3VHN-L4941xzWPBYa8Q5MKQ")
-TAXI_BOT_TOKEN   = os.environ.get("TAXI_BOT_TOKEN", "8820304382:AAHL7I8ow2LpNsMmURXoW7ZN6SmpazPYplM")
+DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN"
+TAXI_BOT_TOKEN   = os.environ.get("TAXI_BOT_TOKEN"
 
 driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot   = telebot.TeleBot(TAXI_BOT_TOKEN)
