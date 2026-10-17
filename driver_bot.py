@@ -21,7 +21,7 @@ def run_web():
 threading.Thread(target=run_web, daemon=True).start()
 
 # ==============================================================================
-# 2. СОЗЛАМАЛАР ВА ТОКЕНЛАР
+# 2. СОЗЛАМАЛАР ВА ЛИНКЛАР
 # ==============================================================================
 DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN")
 TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
@@ -29,14 +29,23 @@ TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
 driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
-# Анкеталар ва фотолар борадиган ёпиқ каналингиз ID'си
+# Анкеталар ва фотолар борадиган ёпиқ админ каналингиз ID рақами
 ADMIN_CHANNEL_ID = -1004484123000
 
-# Ҳайдовчилар ботининг юзернейми (бошқаларга тарқатиш учун)
+# Шу ботнинг юзернейми (бошқа шофёрларга тарқатиш учун)
 DRIVER_BOT_USERNAME = "TAXI_REGION95_ADMIN_bot"
 
-# Фақат сиз тасдиқлаганингиздан кейин борадиган буюртмалар гуруҳи линки
-DRIVER_GROUP_INVITE_LINK = "https://t.me/+YourPrivateGroupLink"
+# Йўналишлар бўйича гуруҳларингизнинг линклари (ўзингизнинг группа линкларингизни ёзинг):
+ROUTE_GROUPS = {
+    "qonirat_nukus": {
+        "title": "Қоңырат - Нөкис",
+        "link": "https://t.me/+QoniratNukusGroupLink"
+    },
+    "qonirat_shomanay": {
+        "title": "Қоңырат - Шоманай",
+        "link": "https://t.me/+QoniratShomanayGroupLink"
+    }
+}
 
 WELCOME_BONUS = 30000
 
@@ -54,7 +63,7 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             full_name TEXT,
             phone TEXT,
-            route TEXT,
+            route_key TEXT,
             car_model TEXT,
             car_number TEXT,
             balance INTEGER DEFAULT 0,
@@ -74,13 +83,13 @@ def get_driver(user_id):
     conn.close()
     return row
 
-def save_pending_driver(user_id, full_name, phone, route, car_model, car_number):
+def save_pending_driver(user_id, full_name, phone, route_key, car_model, car_number):
     conn = sqlite3.connect('taxi_service.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT OR REPLACE INTO drivers (user_id, full_name, phone, route, car_model, car_number, balance, status)
+        INSERT OR REPLACE INTO drivers (user_id, full_name, phone, route_key, car_model, car_number, balance, status)
         VALUES (?, ?, ?, ?, ?, ?, 0, 'pending')
-    ''', (user_id, full_name, phone, route, car_model, car_number))
+    ''', (user_id, full_name, phone, route_key, car_model, car_number))
     conn.commit()
     conn.close()
 
@@ -103,7 +112,7 @@ def reject_driver_in_db(user_id):
     conn.close()
 
 # ==============================================================================
-# 4. ҲАЙДОВЧИНИ РЎЙХАТДАН ЎТКАЗИШ (САВОЛЛАР КЕТМА-КЕТЛИГИ)
+# 4. ҲАЙДОВЧИНИ РЎЙХАТДАН ЎТКАЗИШ (САВОЛЛАР)
 # ==============================================================================
 def get_driver_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -151,17 +160,31 @@ def process_driver_name(message):
 def process_driver_phone(message):
     phone = message.contact.phone_number if message.contact else message.text
     driver_registration_data[message.chat.id]['phone'] = phone
+
+    # Шофёр қўлда ёзмаслиги учун йўналиш тугмалари
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for key, data in ROUTE_GROUPS.items():
+        markup.add(types.InlineKeyboardButton(f"📍 {data['title']}", callback_data=f"route_{key}"))
+
     driver_bot.send_message(
         message.chat.id,
-        "3. Қайсы жөнелис (йўналиш) бойынша қатнайсыз? (Мәселен: Нөкис - Төрткүл ямаса Қала иши):",
+        "3. Қайсы жөнелис бойынша қатнайсыз? Төмендеги туймелерден бирин сайлаң:",
+        reply_markup=markup
+    )
+
+@driver_bot.callback_query_handler(func=lambda call: call.data.startswith("route_"))
+def process_driver_route(call):
+    route_key = call.data.replace("route_", "")
+    driver_registration_data[call.message.chat.id]['route_key'] = route_key
+
+    route_title = ROUTE_GROUPS.get(route_key, {}).get("title", "")
+    driver_bot.send_message(
+        call.message.chat.id,
+        f"Сайланды: <b>{route_title}</b>\n\n4. Машина маркасы ҳәм моделин киргизиң (мәселен: Cobalt, Nexia 3):",
+        parse_mode="HTML",
         reply_markup=types.ReplyKeyboardRemove()
     )
-    driver_bot.register_next_step_handler(message, process_driver_route)
-
-def process_driver_route(message):
-    driver_registration_data[message.chat.id]['route'] = message.text
-    driver_bot.send_message(message.chat.id, "4. Машина маркасы ҳәм моделин киргизиң (мәселен: Cobalt, Nexia 3):")
-    driver_bot.register_next_step_handler(message, process_car_model)
+    driver_bot.register_next_step_handler(call.message, process_car_model)
 
 def process_car_model(message):
     driver_registration_data[message.chat.id]['car_model'] = message.text
@@ -193,17 +216,19 @@ def process_tech_passport(message):
     driver_registration_data[chat_id]['tech_passport'] = message.photo[-1].file_id
     data = driver_registration_data[chat_id]
 
-    # Базага вақтинчалик (pending) қилиб сақлаш
+    # Вақтинчалик (pending) базага сақлаш
     save_pending_driver(
         chat_id,
         data['full_name'],
         data['phone'],
-        data['route'],
+        data['route_key'],
         data['car_model'],
         data['car_number']
     )
 
-    # Админ канали учун тугмалар
+    route_name = ROUTE_GROUPS.get(data['route_key'], {}).get("title", "Белгисиз")
+
+    # Сизнинг каналингиз учун тасдиқлаш тугмалари
     admin_markup = types.InlineKeyboardMarkup()
     admin_markup.add(
         types.InlineKeyboardButton("✅ Тастыйықлаў", callback_data=f"approve_{chat_id}"),
@@ -214,20 +239,20 @@ def process_tech_passport(message):
         f"🚕 <b>ЖАҢА ҲАЙДАВШЫ АРЗАСЫ:</b>\n\n"
         f"👤 <b>Аты:</b> {data['full_name']}\n"
         f"📞 <b>Тел:</b> {data['phone']}\n"
-        f"📍 <b>Жөнелис:</b> {data['route']}\n"
+        f"📍 <b>Жөнелис:</b> {route_name}\n"
         f"🚘 <b>Машина:</b> {data['car_model']} ({data['car_number']})\n"
         f"🆔 <b>Telegram ID:</b> <code>{chat_id}</code>"
     )
 
     try:
-        # Техпаспортни каналга ташлаш
+        # Каналга техпаспортни юбориш
         driver_bot.send_photo(
             ADMIN_CHANNEL_ID,
             data['tech_passport'],
             caption=f"📄 <b>Техпаспорт:</b> {data['full_name']} (ID: {chat_id})",
             parse_mode="HTML"
         )
-        # Машина расмини тўлиқ маълумотлар ва тугмалар билан каналга ташлаш
+        # Каналга машина расми, анкетаси ва Тасдиқлаш/Бекор қилиш тугмаларини юбориш
         driver_bot.send_photo(
             ADMIN_CHANNEL_ID,
             data['car_photo'],
@@ -238,26 +263,31 @@ def process_tech_passport(message):
     except Exception as e:
         print(f"Каналга юборишда хатолик: {e}")
 
-    # Ҳайдовчига кутиш хабари
+    # Ҳайдовчига хабар (унга ҳали ҳеч қандай гуруҳ ссылкаси берилмайди)
     driver_bot.send_message(
         chat_id,
         "✅ <b>Мағлыўматларыңыз админге жиберилди!</b>\n\n"
-        "Ҳүжжетлериңиз тексерилип шығылғаннан соң сизге хабар ҳәм топарға кириў силтемеси жибериледи.",
+        "Ҳүжжетлериңиз админ тәрепинен тексерилип тастыйықланғаннан соң, топарға кириў силтемеси жибериледи.",
         parse_mode="HTML"
     )
 
 # ==============================================================================
-# 5. КАНАЛДАГИ ТАСТИҚЛАШ / БЕКОР ҚИЛИШ ТУГМАЛАРИ
+# 5. КАНАЛДАГИ ТАСТИҚЛАШ / БЕКОР ҚИЛИШ (АДМИН ТУГМАЛАРИ)
 # ==============================================================================
 @driver_bot.callback_query_handler(func=lambda call: call.data.startswith("approve_") or call.data.startswith("reject_"))
 def handle_admin_decision(call):
     action, target_user_id = call.data.split("_")
     target_user_id = int(target_user_id)
 
+    driver = get_driver(target_user_id)
+    if not driver:
+        driver_bot.answer_callback_query(call.id, "Ҳайдавшы мағлыўматы табылмады!", show_alert=True)
+        return
+
     if action == "approve":
         approve_driver_in_db(target_user_id)
         
-        # Каналдаги постни янгилаш
+        # Каналдаги пост матнини янгилаш
         driver_bot.edit_message_caption(
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
@@ -265,21 +295,28 @@ def handle_admin_decision(call):
             parse_mode="HTML"
         )
 
-        # Гуруҳга кириш ва ботни бошқаларга улашиш тугмалари
+        route_key = driver[3]
+        route_info = ROUTE_GROUPS.get(route_key, {
+            "title": "Такси топары",
+            "link": "https://t.me/+YourPrivateGroupLink"
+        })
+
+        # Бошқа шофёрларга тарқатиш учун шу ботнинг таклиф линки
         share_bot_link = f"https://t.me/{DRIVER_BOT_USERNAME}?start={target_user_id}"
-        
+
         driver_markup = types.InlineKeyboardMarkup(row_width=1)
         driver_markup.add(
-            types.InlineKeyboardButton("🚖 Буйыртпалар топарына қосылыў", url=DRIVER_GROUP_INVITE_LINK),
-            types.InlineKeyboardButton("📲 Ботты басқа ҳайдавшыларға жибериў", url=f"https://t.me/share/url?url={share_bot_link}&text=Такси%20хызметине%20ҳайдавшы%20болып%20қосылың!")
+            types.InlineKeyboardButton(f"🚖 «{route_info['title']}» топарына қосылыў", url=route_info['link']),
+            types.InlineKeyboardButton("📲 Ботты басқа ҳайдавшыларға тарқатыў", url=f"https://t.me/share/url?url={share_bot_link}&text=Такси%20хызметине%20ҳайдавшы%20болып%20қосылың!")
         )
 
-        # Ҳайдовчига гуруҳ ва бот ҳаволасини юбориш
+        # Фақат сиз тасдиқлаганингиздан кейин шофёрга линк ва бонус боради
         driver_bot.send_message(
             target_user_id,
             f"🎉 <b>Қутлықлаймыз! Сизниң арзаңыз тастыйықланды!</b>\n\n"
             f"🎁 Сизге <b>{WELCOME_BONUS} сўм</b> бонус берилди!\n\n"
-            f"👇 Төмендеги батырмалар арқалы буйыртпалар топарына қосылың ҳәм ботты басқа таныс шофёрларға тарқатың:\n"
+            f"📍 Сизниң жөнелисиңиз: <b>{route_info['title']}</b>\n\n"
+            f"👇 Төмендеги батырма арқалы өз топарыңызға қосылың ҳәм ботты басқа шофёрларға тарқатың:\n"
             f"Бот силтемеси: {share_bot_link}",
             parse_mode="HTML",
             reply_markup=driver_markup
@@ -315,11 +352,13 @@ def driver_profile(message):
         driver_start(message)
         return
 
+    route_title = ROUTE_GROUPS.get(driver[3], {}).get("title", driver[3])
+
     text = (
         f"👤 <b>Ҳайдавшы профили</b>\n\n"
         f"👤 <b>Аты:</b> {driver[1]}\n"
         f"📞 <b>Тел:</b> {driver[2]}\n"
-        f"📍 <b>Жөнелис:</b> {driver[3]}\n"
+        f"📍 <b>Жөнелис:</b> {route_title}\n"
         f"🚘 <b>Машина:</b> {driver[4]} ({driver[5]})\n"
         f"💰 <b>Баланс:</b> {driver[6]} сўм"
     )
@@ -337,13 +376,8 @@ def driver_rules(message):
     )
 
 # ==============================================================================
-# 7. МИЖОЗ БОТИ БУЮРТМА ҚАБУЛ ҚИЛИШИ (TAXI BOT)
+# 7. МИЖОЗ БОТИДАН БУЮРТМА ОЛИШ (TAXI BOT)
 # ==============================================================================
-def get_client_restart_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(types.KeyboardButton("🚕 Такси шақырыў"))
-    return markup
-
 @taxi_bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
 def handle_accept_order(call):
     try:
