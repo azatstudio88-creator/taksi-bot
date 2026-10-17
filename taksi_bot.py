@@ -23,7 +23,10 @@ Thread(target=run, daemon=True).start()
 # ----------------- БОТ СОЗЛАМАЛАРИ -----------------
 import os
 
+import os
+
 TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
+
 
 
 GROUP_NUKUS = -1004325420878
