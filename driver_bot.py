@@ -20,7 +20,7 @@ threading.Thread(target=run_web, daemon=True).start()
 # ------------------------------
 
 # Токенни хавфсиз олиш (ёки тўғридан-тўғри янги токенни қўйишингиз мумкин)
-DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN", "8820304382:AAFEgn7Lm3DqnlTpdWiIF1qKQexHiaCNu7c")
+DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN", "8840191609:AAGW_DmOExWfs9IDsd-HpP7bcUyZgXsDoos")
 bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 
 # ⚠️ Шахсий каналингизнинг рақамли ID'сини шу ерга қўйинг (Бот каналда админ бўлиши шарт!)
