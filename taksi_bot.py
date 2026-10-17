@@ -20,14 +20,9 @@ def run():
 # Серверни фонда юргизамиз
 Thread(target=run, daemon=True).start()
 
-# ----------------- БОТ СОЗЛАМАЛАРИ -----------------
-import os
-
-import os
-
+# ------------ БОТ СОЗЛАМАЛАРИ ------------
 TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
-
-
+bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
 GROUP_NUKUS = -1004325420878
 GROUP_SHOMANAY = -1004319753073
