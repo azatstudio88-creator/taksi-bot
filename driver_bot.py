@@ -378,10 +378,7 @@ def driver_profile(message):
         driver_start(message)
         return
 
-if __name__ == '__main__':
-    print("Driver bot ishga tushdi...")
-    driver_bot.infinity_polling(skip_pending=True)
-    )
+
 
 @driver_bot.message_handler(func=lambda m: m.text == "ℹ️ Қолланба")
 def driver_rules(message):
@@ -772,27 +769,6 @@ def process_take_order(call):
                     f"🚖 <b>Ҳайдавшы:</b> {full_name}\n"
                     f"📞 <b>Телефон:</b> <code>{driver_phone}</code>\n\n"
                     f"Ҳайдавшы тез арада сизге қоңыраў қылады. Жолға таярланып турың!",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-
-        del orders_data[order_id]
-
-    except Exception as e:
-        taxi_bot.answer_callback_query(call.id, f"Қәтелик жүз берди: {str(e)}", show_alert=True)
-
-# ==============================================================================
-# 6. ПАРАЛЛЕЛЬНЫЙ ЗАПУСК ОБОИХ БОТОВ
-# ==============================================================================
-def start_driver_bot():
+if __name__ == '__main__':
     print("Driver bot ishga tushdi...")
     driver_bot.infinity_polling(skip_pending=True)
-
-def start_taxi_bot():
-    print("Taxi bot ishga tushdi...")
-    taxi_bot.infinity_polling(skip_pending=True)
-
-if __name__ == '__main__':
-    threading.Thread(target=start_driver_bot, daemon=True).start()
-    start_taxi_bot()
