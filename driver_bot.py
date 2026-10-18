@@ -33,7 +33,7 @@ driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
 # Сиз берган админ канали ID рақами
-ADMIN_CHANNEL_ID = -10044841123000
+ADMIN_CHANNEL_ID = -1004484123000
 
 DRIVER_BOT_USERNAME = "TAXI_REGION95_ADMIN_bot"
 HEADER_LINK = f"📲 <b>Басқа айдаўшыларға тарқатыў ушын силтеме:</b> @{DRIVER_BOT_USERNAME}\n" + "—" * 30 + "\n\n"
