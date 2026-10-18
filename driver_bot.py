@@ -23,11 +23,15 @@ threading.Thread(target=run_web, daemon=True).start()
 # ==============================================================================
 # 2. СОЗЛАМАЛАР ВА 8 ТА ЙЎНАЛИШ
 # ==============================================================================
-# 2. СОЗЛАМАЛАР
-DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN", "").strip()
+# Токенларни пробеллардан тозалаб олиш
+DRIVER_BOT_TOKEN = (os.environ.get("DRIVER_BOT_TOKEN") or "").strip()
+TAXI_BOT_TOKEN = (os.environ.get("TAXI_BOT_TOKEN") or "").strip()
 
-# Анкеталар тушадиган ёпиқ админ канали
-ADMIN_CHANNEL_ID = -1004484123000
+print(f"--> DRIVER_TOKEN узунлиги: {len(DRIVER_BOT_TOKEN)}")
+print(f"--> TAXI_TOKEN узунлиги: {len(TAXI_BOT_TOKEN)}")
+
+driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
+taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
 # Бот юзернейми ва шапка матни
 DRIVER_BOT_USERNAME = "TAXI_REGION95_ADMIN_bot"
