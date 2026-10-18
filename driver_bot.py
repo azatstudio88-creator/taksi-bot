@@ -23,7 +23,6 @@ threading.Thread(target=run_web, daemon=True).start()
 # ==============================================================================
 # 2. СОЗЛАМАЛАР ВА 8 ТА ЙЎНАЛИШ
 # ==============================================================================
-# Токенларни пробеллардан тозалаб олиш
 DRIVER_BOT_TOKEN = (os.environ.get("DRIVER_BOT_TOKEN") or "").strip()
 TAXI_BOT_TOKEN = (os.environ.get("TAXI_BOT_TOKEN") or "").strip()
 
@@ -33,12 +32,12 @@ print(f"--> TAXI_TOKEN узунлиги: {len(TAXI_BOT_TOKEN)}")
 driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
-# Бот юзернейми ва шапка матни
+# Сиз берган ёпиқ админ канали ID рақами
+ADMIN_CHANNEL_ID = -10044841123000
+
 DRIVER_BOT_USERNAME = "TAXI_REGION95_ADMIN_bot"
 HEADER_LINK = f"📲 <b>Басқа айдаўшыларға тарқатыў ушын силтеме:</b> @{DRIVER_BOT_USERNAME}\n" + "—" * 30 + "\n\n"
 
-# БАРЛЫҚ 8 ЖӨНЕЛИС, ГРУППА ИД НОМЕРЛЕРИ ҲӘМ ТАЙЫН СИЛТЕМЕЛЕРИ
-# (Егер группада бот админ болмаса, төмендеги invite_link орнына группаңыздың жеке силтемесин қойың)
 ROUTE_DATA = {
     "nukus_qonirat": {
         "title": "Нөкис — Қоңырат",
@@ -349,8 +348,9 @@ def process_tech_passport(message):
             parse_mode="HTML",
             reply_markup=admin_markup
         )
+        print("--> Ҳайдовчи анкетаси админ каналига юборилди!")
     except Exception as e:
-        print(f"Каналга жибериўде қәтелик: {e}")
+        print(f"--> КАНАЛГА ЖИБЕРИЎДЕ ҚӘТЕЛИК: {e}")
 
     driver_bot.send_message(
         chat_id,
@@ -386,7 +386,6 @@ def handle_admin_decision(call):
         route_info = ROUTE_DATA.get(route_key, {})
         group_id = route_info.get("group_id")
 
-        # Агар бот гуруҳда админ бўлса янги линк яратади, бўлмаса тайёр invite_link ни олади:
         invite_link = None
         try:
             link_obj = driver_bot.create_chat_invite_link(group_id, member_limit=1)
@@ -396,175 +395,4 @@ def handle_admin_decision(call):
 
         driver_markup = types.InlineKeyboardMarkup(row_width=1)
         driver_markup.add(
-            types.InlineKeyboardButton(f"🚖 «{route_info.get('title')}» топарына кириў", url=invite_link),
-            types.InlineKeyboardButton(
-                "📲 Ботты басқа айдаўшыларға тарқатыў",
-                url=f"https://t.me/share/url?url=https://t.me/{DRIVER_BOT_USERNAME}?start={target_user_id}&text=Айдаўшылар%20ботына%20қосылың!"
-            )
-        )
-
-        bonus_text = f"🎁 Сизге биринши мәрте дизимнен өткениңиз ушын <b>{WELCOME_BONUS} сўм</b> бонус берилди!\n\n" if bonus_added > 0 else "ℹ️ Сиз алдын дизимнен өткенсиз, сол себепли қосымша бонус берилмеди.\n\n"
-
-        driver_bot.send_message(
-            target_user_id,
-            HEADER_LINK + f"🎉 <b>Қутлықлаймыз! Сизниң арзаңыз тастыйықланды!</b>\n\n"
-            f"{bonus_text}"
-            f"📍 Сизниң жөнелисиңиз: <b>{route_info.get('title')}</b>\n\n"
-            f"👇 Төмендеги батырма арқалы өз топарыңызға қосылың:",
-            parse_mode="HTML",
-            reply_markup=driver_markup
-        )
-
-        driver_bot.send_message(
-            target_user_id,
-            "Сизниң жумыс кабинетиңиз иске түсти:",
-            reply_markup=get_driver_main_keyboard()
-        )
-
-    else:
-        reject_driver_in_db(target_user_id)
-        driver_bot.edit_message_caption(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            caption=call.message.caption + "\n\n<b>❌ БИЙКАР ЕТИЛДИ</b>",
-            parse_mode="HTML"
-        )
-        driver_bot.send_message(
-            target_user_id,
-            HEADER_LINK + "Кешириң, сизниң арзаңыз админ тәрепинен қабыл етилмеди.",
-            parse_mode="HTML"
-        )
-
-# ==============================================================================
-# 7. БАЛАНС ТЕКШИРИШ, ПРОФИЛЬ ҲӘМ ҚОЛЛАНБА
-# ==============================================================================
-@driver_bot.message_handler(func=lambda m: m.text in ["💰 Баланс", "👤 Профилим"])
-def driver_profile_and_balance(message):
-    user_id = message.chat.id
-    driver = get_driver(user_id)
-    if not driver:
-        driver_start(message)
-        return
-
-    route_title = ROUTE_DATA.get(driver[3], {}).get("title", driver[3])
-
-    text = (
-        HEADER_LINK +
-        f"👤 <b>Айдаўшы кабинети</b>\n\n"
-        f"👤 <b>Аты:</b> {driver[1]}\n"
-        f"📞 <b>Тел:</b> {driver[2]}\n"
-        f"📍 <b>Жөнелис:</b> {route_title}\n"
-        f"🚘 <b>Машина:</b> {driver[4]} ({driver[5]})\n"
-        f"💰 <b>Балансыңыз:</b> <b>{driver[6]} сўм</b>"
-    )
-    driver_bot.send_message(user_id, text, parse_mode="HTML", reply_markup=get_share_markup(user_id))
-
-@driver_bot.message_handler(func=lambda m: m.text == "ℹ️ Қолланба")
-def driver_rules(message):
-    driver_bot.send_message(
-        message.chat.id,
-        HEADER_LINK +
-        "ℹ️ <b>Қағыйдалар ҳәм комиссия:</b>\n\n"
-        "1. Буйыртпа топарға түскенде «Буйыртпаны алыў» батырмасын басың.\n"
-        "2. Комиссия заказ ушын емес, <b>ҳәр бир адам (жолаўшы) санына</b> قارап есапланады:\n"
-        "   • Нөкис — Қоңырат: 3 000 сўм (ҳәр бир адамға)\n"
-        "   • Қоңырат — Мойнақ: 2 000 сўм\n"
-        "   • Қоңырат — Ақшолақ: 2 000 сўм\n"
-        "   • Нөкис — Қанлыкөл: 2 000 сўм\n"
-        "   • Нөкис — Шоманай: 2 000 сўм\n"
-        "   • Қоңырат — Қанлыкөл: 1 000 сўм\n"
-        "   • Қоңырат — Шоманай: 1 500 сўм\n"
-        "   • Қоңырат — Сода завод: 1 000 сўм\n"
-        "3. Балансыңызда жетерли қаржы болмаса, буйыртпаны алып болмайды.",
-        parse_mode="HTML"
-    )
-
-# ==============================================================================
-# 8. МИЖОЗ БОТИДАН БУЮРТМА ОЛИШ ВА ОДАМ СОНИГА ҚАРАБ КОМИССИЯ ЕЧИШ
-# ==============================================================================
-@taxi_bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
-def handle_accept_order(call):
-    try:
-        order_id = call.data.split("_")[1]
-        driver_user_id = call.from_user.id
-
-        driver = get_driver(driver_user_id)
-        if not driver or driver[7] != 'approved':
-            driver_bot.answer_callback_query(
-                call.id,
-                "Буйыртпаны тек тастыйықланған айдаўшылар алыўы мүмкин!",
-                show_alert=True
-            )
-            return
-
-        order = orders_data.get(order_id)
-        if not order:
-            driver_bot.answer_callback_query(call.id, "Бул буйыртпа алдын алынған ямаса бийкар етилген!", show_alert=True)
-            return
-
-        route_key = driver[3]
-        route_info = ROUTE_DATA.get(route_key, {})
-        fee_per_person = route_info.get("fee_per_person", 2000)
-
-        passengers_count = int(order.get('passengers_count', 1))
-        total_commission = fee_per_person * passengers_count
-
-        current_balance = driver[6]
-        if current_balance < total_commission:
-            driver_bot.answer_callback_query(
-                call.id,
-                f"Балансыңызда қаржы жетпейди!\n"
-                f"Буйыртпада: {passengers_count} адам\n"
-                f"Керекли комиссия: {total_commission} сўм\n"
-                f"Сизниң балансыңыз: {current_balance} сўм",
-                show_alert=True
-            )
-            return
-
-        deduct_balance(driver_user_id, total_commission)
-
-        full_name = driver[1]
-        driver_phone = driver[2]
-
-        client_id = order.get('client_id')
-        if client_id:
-            try:
-                taxi_bot.send_message(
-                    client_id,
-                    f"🎉 <b>Буйыртпаңыз қабылланды!</b>\n\n"
-                    f"🚖 <b>Айдаўшы:</b> {full_name}\n"
-                    f"📞 <b>Телефон:</b> <code>{driver_phone}</code>\n\n"
-                    f"Айдаўшы тез арада сизге қоңыраў қылады. Жолға таярланып турың!",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-
-        driver_bot.answer_callback_query(
-            call.id,
-            f"Буйыртпа қабылланды! {passengers_count} адам ушын {total_commission} сўм комиссия алынды.",
-            show_alert=True
-        )
-
-        del orders_data[order_id]
-
-    except Exception as e:
-        taxi_bot.answer_callback_query(call.id, f"Қәтелик жүз берди: {str(e)}", show_alert=True)
-
-# ==============================================================================
-# 9. ИШГА ТУШИРИШ
-# ==============================================================================
-if __name__ == '__main__':
-    import threading
-    print("Иккала бот хам муваффакиятли ишга тушди...")
-    
-    # 1. Шофёрлар ботини алоҳида оқимда юргизиш
-    threading.Thread(target=lambda: driver_bot.infinity_polling(skip_pending=True), daemon=True).start()
-    
-    # 2. Мижозлар ботини асосий оқимда юргизиш
-    taxi_bot.infinity_polling(skip_pending=True)
-    # 1. Шофёрлар ботини алоҳида оқимда юргизиш:
-    threading.Thread(target=lambda: driver_bot.infinity_polling(skip_pending=True), daemon=True).start()
-    
-    # 2. Мижозлар ботини асосий оқимда юргизиш:
-    taxi_bot.infinity_polling(skip_pending=True)
+            types.InlineKeyboardButton(f"🚖 «{route_info.get('title')}»
