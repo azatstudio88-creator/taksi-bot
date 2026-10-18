@@ -558,6 +558,11 @@ if __name__ == '__main__':
     import threading
     print("Иккала бот хам муваффакиятли ишга тушди...")
     
+    # 1. Шофёрлар ботини алоҳида оқимда юргизиш
+    threading.Thread(target=lambda: driver_bot.infinity_polling(skip_pending=True), daemon=True).start()
+    
+    # 2. Мижозлар ботини асосий оқимда юргизиш
+    taxi_bot.infinity_polling(skip_pending=True)
     # 1. Шофёрлар ботини алоҳида оқимда юргизиш:
     threading.Thread(target=lambda: driver_bot.infinity_polling(skip_pending=True), daemon=True).start()
     
