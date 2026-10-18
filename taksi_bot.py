@@ -285,7 +285,6 @@ def step_location_and_send(message):
     phone = user_data[user_id].get('phone', '-')
     user_name = message.from_user.first_name
 
-    # Одам сонини аниқлаш
     passengers_count = 1
     if "2" in odam:
         passengers_count = 2
@@ -353,6 +352,8 @@ def step_location_and_send(message):
             user_id,
             "⚠️ Буйыртпаны жибериўде қәтелик жүз берди. Илтимас, қайтадан урынып көрсек болады.",
             reply_markup=get_restart_keyboard()
+        )
+
 # ----------------- БУЮРТМАНИ ҲАЙДОВЧИ ҚАБУЛ ҚИЛИШИ -----------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith("take_"))
 def process_take_order(call):
@@ -371,7 +372,6 @@ def process_take_order(call):
         base_fee = COMMISSION_PER_PERSON.get(route, 2000)
         total_fee = base_fee * passengers_count
 
-        # taxi_service.db базасидан текшириш
         conn = sqlite3.connect("taxi_service.db")
         cursor = conn.cursor()
         cursor.execute("SELECT full_name, phone, car_model, car_number, balance, status FROM drivers WHERE user_id = ?", (driver_id,))
@@ -407,7 +407,6 @@ def process_take_order(call):
             conn.close()
             return
 
-        # Балансдан пул ечиш
         new_balance = balance - total_fee
         cursor.execute("UPDATE drivers SET balance = ? WHERE user_id = ?", (new_balance, driver_id))
         conn.commit()
@@ -424,7 +423,7 @@ def process_take_order(call):
         except Exception:
             pass
 
-        # 2. Ҳайдовчининг личкасига заказ маълумотларини юбориш
+        # 2. Ҳайдовчига личкасида маълумотларни чиқариш
         driver_text = (
             f"🚕 <b>Буйыртпа табыслы қабылланды!</b>\n\n"
             f"🛣 <b>Бағдар:</b> {route}\n"
@@ -443,7 +442,6 @@ def process_take_order(call):
         except Exception as e:
             print(f"--> Ҳайдовчига личкада хабар юборишда хато: {e}")
 
-        # Тугма босилганини тасдиқлаш
         bot.answer_callback_query(call.id, f"✅ Буйыртпа алынды! Комиссия: {total_fee:,} сўм")
 
         # 3. Мижозга ҳайдовчи маълумотларини юбориш
