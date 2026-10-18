@@ -351,6 +351,9 @@ def step_location_and_send(message):
         bot.send_message(
             user_id,
             "⚠️ Буйыртпаны жибериўде қәтелик жүз берди. Илтимас, қайтадан урынып көрсек болады.",
+            reply_markup=get_restart_keyboard()
+        )
+
 # ----------------- БУЮРТМАНИ ҲАЙДОВЧИ ҚАБУЛ ҚИЛИШИ -----------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith("take_"))
 def process_take_order(call):
@@ -369,7 +372,6 @@ def process_take_order(call):
         base_fee = COMMISSION_PER_PERSON.get(route, 2000)
         total_fee = base_fee * passengers_count
 
-        # Базага уланиш ва жадвал йўқ бўлса автоматик яратиш
         conn = sqlite3.connect("taxi_service.db")
         cursor = conn.cursor()
         cursor.execute("""
@@ -424,7 +426,7 @@ def process_take_order(call):
         conn.commit()
         conn.close()
 
-        # 1. Гуруҳдаги хабарни янгилаш
+        # 1. Гуруҳдаги хабар матнини янгилаш
         try:
             bot.edit_message_text(
                 chat_id=call.message.chat.id,
@@ -435,7 +437,7 @@ def process_take_order(call):
         except Exception:
             pass
 
-        # 2. Ҳайдовчига личкада маълумотларни чиқариш
+        # 2. Ҳайдовчига личкасида маълумотларни чиқариш
         driver_text = (
             f"🚕 <b>Буйыртпа табыслы қабылланды!</b>\n\n"
             f"🛣 <b>Бағдар:</b> {route}\n"
