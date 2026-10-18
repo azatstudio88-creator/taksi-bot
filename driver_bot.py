@@ -16,7 +16,7 @@ def home():
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 threading.Thread(target=run_web, daemon=True).start()
 
@@ -32,7 +32,7 @@ print(f"--> TAXI_TOKEN узунлиги: {len(TAXI_BOT_TOKEN)}")
 driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
 taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
 
-# Сиз берган ёпиқ админ канали ID рақами
+# Сиз берган админ канали ID рақами
 ADMIN_CHANNEL_ID = -10044841123000
 
 DRIVER_BOT_USERNAME = "TAXI_REGION95_ADMIN_bot"
@@ -348,7 +348,7 @@ def process_tech_passport(message):
             parse_mode="HTML",
             reply_markup=admin_markup
         )
-        print("--> Ҳайдовчи анкетаси админ каналига юборилди!")
+        print("--> Анкета админ каналига юборилди!")
     except Exception as e:
         print(f"--> КАНАЛГА ЖИБЕРИЎДЕ ҚӘТЕЛИК: {e}")
 
@@ -553,11 +553,19 @@ def handle_accept_order(call):
 # ==============================================================================
 # 9. ИШГА ТУШИРИШ
 # ==============================================================================
+def start_driver():
+    try:
+        driver_bot.infinity_polling(skip_pending=True)
+    except Exception as e:
+        print(f"--> DRIVER_BOT хатолиги: {e}")
+
+def start_taxi():
+    try:
+        taxi_bot.infinity_polling(skip_pending=True)
+    except Exception as e:
+        print(f"--> TAXI_BOT хатолиги: {e}")
+
 if __name__ == '__main__':
-    print("Иккала бот хам муваффакиятли ишга тушди...")
-    
-    # 1. Шофёрлар ботини алоҳида оқимда юргизиш
-    threading.Thread(target=lambda: driver_bot.infinity_polling(skip_pending=True), daemon=True).start()
-    
-    # 2. Мижозлар ботини асосий оқимда юргизиш
-    taxi_bot.infinity_polling(skip_pending=True)
+    print(">>> Иккала бот хам муваффакиятли ишга тушди...")
+    threading.Thread(target=start_driver, daemon=True).start()
+    start_taxi()
