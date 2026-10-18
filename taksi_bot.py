@@ -351,9 +351,6 @@ def step_location_and_send(message):
         bot.send_message(
             user_id,
             "⚠️ Буйыртпаны жибериўде қәтелик жүз берди. Илтимас, қайтадан урынып көрсек болады.",
-            reply_markup=get_restart_keyboard()
-        )
-
 # ----------------- БУЮРТМАНИ ҲАЙДОВЧИ ҚАБУЛ ҚИЛИШИ -----------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith("take_"))
 def process_take_order(call):
@@ -372,8 +369,23 @@ def process_take_order(call):
         base_fee = COMMISSION_PER_PERSON.get(route, 2000)
         total_fee = base_fee * passengers_count
 
+        # Базага уланиш ва жадвал йўқ бўлса автоматик яратиш
         conn = sqlite3.connect("taxi_service.db")
         cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS drivers (
+                user_id INTEGER PRIMARY KEY,
+                full_name TEXT,
+                phone TEXT,
+                route_key TEXT,
+                car_model TEXT,
+                car_number TEXT,
+                balance INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending'
+            )
+        """)
+        conn.commit()
+
         cursor.execute("SELECT full_name, phone, car_model, car_number, balance, status FROM drivers WHERE user_id = ?", (driver_id,))
         driver = cursor.fetchone()
 
@@ -412,7 +424,7 @@ def process_take_order(call):
         conn.commit()
         conn.close()
 
-        # 1. Гуруҳдаги хабар матнини янгилаш
+        # 1. Гуруҳдаги хабарни янгилаш
         try:
             bot.edit_message_text(
                 chat_id=call.message.chat.id,
@@ -423,7 +435,7 @@ def process_take_order(call):
         except Exception:
             pass
 
-        # 2. Ҳайдовчига личкасида маълумотларни чиқариш
+        # 2. Ҳайдовчига личкада маълумотларни чиқариш
         driver_text = (
             f"🚕 <b>Буйыртпа табыслы қабылланды!</b>\n\n"
             f"🛣 <b>Бағдар:</b> {route}\n"
