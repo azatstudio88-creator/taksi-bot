@@ -23,11 +23,8 @@ threading.Thread(target=run_web, daemon=True).start()
 # ==============================================================================
 # 2. СОЗЛАМАЛАР ВА 8 ТА ЙЎНАЛИШ
 # ==============================================================================
-DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN")
-TAXI_BOT_TOKEN = os.environ.get("TAXI_BOT_TOKEN")
-
-driver_bot = telebot.TeleBot(DRIVER_BOT_TOKEN)
-taxi_bot = telebot.TeleBot(TAXI_BOT_TOKEN)
+# 2. СОЗЛАМАЛАР
+DRIVER_BOT_TOKEN = os.environ.get("DRIVER_BOT_TOKEN", "").strip()
 
 # Анкеталар тушадиган ёпиқ админ канали
 ADMIN_CHANNEL_ID = -1004484123000
