@@ -353,108 +353,120 @@ def step_location_and_send(message):
             user_id,
             "⚠️ Буйыртпаны жибериўде қәтелик жүз берди. Илтимас, қайтадан урынып көрсек болады.",
             reply_markup=get_restart_keyboard()
-        )
-
 # ----------------- БУЮРТМАНИ ҲАЙДОВЧИ ҚАБУЛ ҚИЛИШИ -----------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith("take_"))
 def process_take_order(call):
-    driver_id = call.from_user.id
-    order_id = call.data.split("_")[1]
-
-    if order_id not in orders_data:
-        bot.answer_callback_query(call.id, "⚠️ Бул буйыртпа алдын алынған яки актив емес!", show_alert=True)
-        return
-
-    order = orders_data[order_id]
-    route = order.get('route', '')
-    passengers_count = order.get('passengers_count', 1)
-
-    # 1 кишилик комиссия ставкасини олиш
-    base_fee = COMMISSION_PER_PERSON.get(route, 2000)
-    total_fee = base_fee * passengers_count
-
-    # Тўғри базадан ҳайдовчини текшириш
-    conn = sqlite3.connect("taxi_service.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT full_name, phone, car_model, car_number, balance, status FROM drivers WHERE user_id = ?", (driver_id,))
-    driver = cursor.fetchone()
-
-    if not driver or driver[5] != 'approved':
-        bot.answer_callback_query(
-            call.id, 
-            "⚠️ Сиз тастыйықланған айдаўшы емессиз! Дәслеп дизимнен өтиң ҳәм админ тастыйықлаўын күтиң.", 
-            show_alert=True
-        )
-        conn.close()
-        return
-
-    full_name, driver_phone, car_model, car_number, balance, status = driver
-    car_info = f"{car_model} ({car_number})"
-
-    if balance < total_fee:
-        bot.answer_callback_query(
-            call.id, 
-            f"❌ Балансыңызда қаржы жетпейди!\nБул буйыртпа ({passengers_count} адам) ушын комиссия: {total_fee:,} сўм.\nСиздиң балансыңыз: {balance:,} сўм.", 
-            show_alert=True
-        )
-        conn.close()
-        return
-
-    # Балансдан пул ечиш
-    new_balance = balance - total_fee
-    cursor.execute("UPDATE drivers SET balance = ? WHERE user_id = ?", (new_balance, driver_id))
-    conn.commit()
-    conn.close()
-
-    # 1. Гуруҳдаги хабарни янгилаш
     try:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"{call.message.text}\n\n✅ <b>Буйыртпа алынды!</b>\n🚖 Ҳайдавшы: {full_name} ({car_info})",
-            parse_mode="HTML"
-        )
-    except Exception:
-        pass
+        driver_id = call.from_user.id
+        order_id = call.data.split("_")[1]
 
-    # 2. Ҳайдовчига мижоз маълумотларини личкасига жўнатиш
-    driver_text = (
-        f"🚕 <b>Буйыртпа табыслы қабылланды!</b>\n\n"
-        f"🛣 <b>Бағдар:</b> {route}\n"
-        f"👤 <b>Клиент:</b> {order.get('client_name')}\n"
-        f"📞 <b>Телефон:</b> <code>{order.get('client_phone')}</code>\n"
-        f"📍 <b>Мәнзил/Локация:</b> {order.get('location')}\n"
-        f"👥 <b>Адам саны:</b> {passengers_count}\n\n"
-        f"💵 Балансыңыздан: <b>{total_fee:,} сўм</b> ешилди.\n"
-        f"💰 Қалған балансыңыз: <b>{new_balance:,} сўм</b>"
-    )
-    try:
-        bot.send_message(driver_id, driver_text, parse_mode="HTML")
-        if order.get('location_obj'):
-            loc = order['location_obj']
-            bot.send_location(driver_id, latitude=loc.latitude, longitude=loc.longitude)
-    except Exception:
-        pass
+        if order_id not in orders_data:
+            bot.answer_callback_query(call.id, "⚠️ Бул буйыртпа алдын алынған яки актив емес!", show_alert=True)
+            return
 
-    bot.answer_callback_query(call.id, f"Буйыртпа қабылланды! Баланстан {total_fee:,} сўм ешилди.")
+        order = orders_data[order_id]
+        route = order.get('route', '')
+        passengers_count = int(order.get('passengers_count', 1))
 
-    # 3. Мижозга ҳайдовчи маълумотларини юбориш
-    client_id = order.get('client_id')
-    if client_id:
+        base_fee = COMMISSION_PER_PERSON.get(route, 2000)
+        total_fee = base_fee * passengers_count
+
+        # taxi_service.db базасидан текшириш
+        conn = sqlite3.connect("taxi_service.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT full_name, phone, car_model, car_number, balance, status FROM drivers WHERE user_id = ?", (driver_id,))
+        driver = cursor.fetchone()
+
+        if not driver:
+            bot.answer_callback_query(
+                call.id, 
+                "⚠️ Сиз айдаўшылар ботында дизимнен өтпегенсиз!", 
+                show_alert=True
+            )
+            conn.close()
+            return
+
+        if driver[5] != 'approved':
+            bot.answer_callback_query(
+                call.id, 
+                "⚠️ Сиз ҳәзирше админ тәрепинен тастыйықланбағансыз!", 
+                show_alert=True
+            )
+            conn.close()
+            return
+
+        full_name, driver_phone, car_model, car_number, balance, status = driver
+        car_info = f"{car_model} ({car_number})"
+
+        if balance < total_fee:
+            bot.answer_callback_query(
+                call.id, 
+                f"❌ Балансыңызда қаржы жетпейди!\nКерекли комиссия: {total_fee:,} сўм.\nСиздиң балансыңыз: {balance:,} сўм.", 
+                show_alert=True
+            )
+            conn.close()
+            return
+
+        # Балансдан пул ечиш
+        new_balance = balance - total_fee
+        cursor.execute("UPDATE drivers SET balance = ? WHERE user_id = ?", (new_balance, driver_id))
+        conn.commit()
+        conn.close()
+
+        # 1. Гуруҳдаги хабар матнини янгилаш
         try:
-            bot.send_message(
-                client_id,
-                f"🎉 <b>Буйыртпаңыз қабылланды!</b>\n\n"
-                f"🚖 <b>Ҳайдавшы:</b> {full_name}\n"
-                f"🚘 <b>Автомобиль:</b> {car_info}\n"
-                f"📞 <b>Телефон:</b> <code>{driver_phone}</code>\n\n"
-                f"Ҳайдавшы тез арада сизге қоңыраў қылады. Жолға таярланып турың!",
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=f"{call.message.text}\n\n✅ <b>Буйыртпа алынды!</b>\n🚖 Ҳайдавшы: {full_name} ({car_info})",
                 parse_mode="HTML"
             )
-        except Exception as e:
-            print(f"--> Клиентга хабар юборишда хато: {e}")
+        except Exception:
+            pass
 
-    del orders_data[order_id]
+        # 2. Ҳайдовчининг личкасига заказ маълумотларини юбориш
+        driver_text = (
+            f"🚕 <b>Буйыртпа табыслы қабылланды!</b>\n\n"
+            f"🛣 <b>Бағдар:</b> {route}\n"
+            f"👤 <b>Клиент:</b> {order.get('client_name')}\n"
+            f"📞 <b>Телефон:</b> <code>{order.get('client_phone')}</code>\n"
+            f"📍 <b>Мәнзил/Локация:</b> {order.get('location')}\n"
+            f"👥 <b>Адам саны:</b> {passengers_count}\n\n"
+            f"💵 Балансыңыздан: <b>{total_fee:,} сўм</b> ешилди.\n"
+            f"💰 Қалған балансыңыз: <b>{new_balance:,} сўм</b>"
+        )
+        try:
+            bot.send_message(driver_id, driver_text, parse_mode="HTML")
+            if order.get('location_obj'):
+                loc = order['location_obj']
+                bot.send_location(driver_id, latitude=loc.latitude, longitude=loc.longitude)
+        except Exception as e:
+            print(f"--> Ҳайдовчига личкада хабар юборишда хато: {e}")
+
+        # Тугма босилганини тасдиқлаш
+        bot.answer_callback_query(call.id, f"✅ Буйыртпа алынды! Комиссия: {total_fee:,} сўм")
+
+        # 3. Мижозга ҳайдовчи маълумотларини юбориш
+        client_id = order.get('client_id')
+        if client_id:
+            try:
+                bot.send_message(
+                    client_id,
+                    f"🎉 <b>Буйыртпаңыз қабылланды!</b>\n\n"
+                    f"🚖 <b>Ҳайдавшы:</b> {full_name}\n"
+                    f"🚘 <b>Автомобиль:</b> {car_info}\n"
+                    f"📞 <b>Телефон:</b> <code>{driver_phone}</code>\n\n"
+                    f"Ҳайдавшы тез арада сизге қоңыраў қылады. Жолға таярланып турың!",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                print(f"--> Мижозга хабар юборишда хато: {e}")
+
+        del orders_data[order_id]
+
+    except Exception as err:
+        print(f"--> ТУГМАДА ХАТОЛИК: {err}")
+        bot.answer_callback_query(call.id, f"Қәтелик: {str(err)}", show_alert=True)
 
 # ----------------- БОТНИНГ ИШГА ТУШИШ ҚИСМИ -----------------
 if __name__ == '__main__':
